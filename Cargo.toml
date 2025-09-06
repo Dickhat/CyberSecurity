@@ -1,0 +1,8 @@
+[package]
+name = "CyberSecurity"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+crypto-bigint = "0.6.1"
+crypto-primes = "0.6.2"
