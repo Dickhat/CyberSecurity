@@ -250,7 +250,9 @@ impl RsaData
         Ok(data)
     }
 
-    // Шифрование с дополнением
+    // Шифрование с дополнением. Старшие 2 байта нулевые, чтобы m < N. Старший 3 байт обозначает 
+    // число байт дополнения сообщения до 64 байт.
+    // Пример: 00A0000000BACSA...A <- старшие 00, A - число байт дополнения, начало сообщения с байта со значением B. 
     pub fn encryption(&self, message:& String) -> Result<PathBuf, String>
     {
         let path = PathBuf::from("output_encryption");
@@ -261,7 +263,7 @@ impl RsaData
         // Короткий текст
         if message.len() < 64
         {
-            buf[0] = 64 - message.as_bytes().len() as u8; // Число байт дополнения (включая сам этот байт)
+            buf[2] = 64 - message.as_bytes().len() as u8; // Число байт дополнения (включая сам этот байт)
             buf[64 - message.as_bytes().len()..].copy_from_slice(message.as_bytes()); // Вставить в конец сообщение
 
             cipher_text = U512::from_be_slice(&buf);
@@ -269,14 +271,15 @@ impl RsaData
 
             file.write_all(&cipher_text.to_be_bytes()).unwrap();
         }
+        
         else {
             let b_message = message.as_bytes();
 
-            // По 63 байта (text < (512 / 8))
-            for bytes in b_message.chunks(63)
+            // По 60 байт (text < (512 / 8))
+            for bytes in b_message.chunks(60)
             {
                 buf = [0u8; 64];
-                buf[0] = 64 - bytes.len() as u8;                    // Число байт дополнения (включая сам этот байт)
+                buf[2] = 64 - bytes.len() as u8;                    // Число байт дополнения (включая сам этот байт)
                 buf[64 - bytes.len()..].copy_from_slice(bytes); // Вставить в конец сообщение
 
                 cipher_text = U512::from_be_slice(&buf);
@@ -311,7 +314,7 @@ impl RsaData
             text = Self::modpow(text, self.private_key, self.n);
 
             let text_b = text.to_be_bytes();
-            padding = 64 - text_b[0] as usize;
+            padding = 64 - text_b[2] as usize;       // ПРоверить переполнение
 
             // Добавить проверку на записанные байты
             file_out.write_all(&text_b[64 - padding..]).unwrap(); // Записать текст без дополнения
