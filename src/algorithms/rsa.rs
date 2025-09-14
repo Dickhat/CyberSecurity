@@ -1,12 +1,14 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
-use crypto_bigint::{Constants, Encoding};
-use crypto_bigint::{rand_core::OsRng, Integer, NonZero, Random, Uint, Zero, U256, U512, U1024, I2048};
-use crypto_primes::RandomPrimeWithRng;
+use crypto_bigint::{Constants, Encoding, ConcatMixed};
+use crypto_bigint::{rand_core::OsRng, Integer, NonZero, Random, Uint, Zero, U256, U512, U1024, I2048, U16384, U32768};
+use crypto_primes::{RandomPrimeWithRng};
 
 use std::fs::File;
 use std::path::PathBuf;
 use std::io::{self, Read, Write};
+
+use super::hex_to_bytes;
 
 #[derive(Debug)]
 pub struct RsaData
@@ -324,39 +326,135 @@ impl RsaData
     }
 }
 
+#[derive(Debug)]
+pub struct RsaDataU32768
+{
+    pub p: U16384, // primary number one
+    pub q: U16384, // primary number two
+    pub n: U32768, // modulus
+    pub public_key: U32768, // e - public exponent
+    pub private_key: U32768,// d - private exponent
+}
 
-// impl RsaData<U512> {
-    
-// }
-// impl RsaData<U1024> {
-    
-// }
-// impl RsaData<U2048> {
-    
-// }
+// Доделать encrypt/decrypt
+impl RsaDataU32768 {
+    // Проверить на переполнение
+    fn mulmod(left: & U32768, rigth: & U32768, modulus: & U32768) -> U32768
+    {
+        let left_m = *left % *modulus;
+        let right_m = *rigth % *modulus;
 
-// impl RsaData<U4096> {
-    
-// }
+        (left_m * right_m) % *modulus
+    }
 
-// impl RsaData<U8192> {
-    
-// }
+    // Быстрое возведение в степень и модуль
+    fn modpow(mut base: U32768, mut exp: U32768, modulus: U32768) -> U32768 {
+        if modulus == U32768::ONE
+        {
+            return U32768::ZERO;
+        }
 
-// impl RsaData<U16384> {
-    
-// }
+        let modulus_nz: NonZero<U32768> = NonZero::new(modulus).expect("modulus must be nonzero");
+        let mut result: U32768 = U32768::ONE;
+        base = base % modulus;
 
-// impl RsaData<U32768> {
-    
-// }
+        while exp > U32768::ZERO {
+            if exp.is_odd().into() {
+                result = Self::mulmod(& result, & base, & modulus_nz); //.mul_mod(&base, &modulus_nz);
+            }
+            
+            exp = exp >> 1;
+            base =  Self::mulmod(& base, & base, & modulus_nz);//base.mul_mod(&base, &modulus_nz);
+        }
+        result
+    }
 
-// Перевод шестнацетиричных чисел в байты
-fn hex_to_bytes(hex: &str) -> Vec<u8> {
-    (0..hex.len())
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap())
-        .collect()
+    // Запись данных RSA в файл RsaData
+    fn stf(data:&RsaDataU32768)
+    {
+        let mut file = File::create("RsaData32768").unwrap();
+        
+        writeln!(file, "p = {}", data.p).unwrap();
+        writeln!(file, "q = {}", data.q).unwrap();
+        writeln!(file, "n = {}", data.n).unwrap();
+        writeln!(file, "public_key = {}", data.public_key).unwrap();
+        writeln!(file, "private_key = {}", data.private_key).unwrap();
+    }
+
+    fn get_bpn() -> (U16384, U16384)
+    {
+        let p;
+        let q;
+
+        // p = Uint::<LIMBS>::random(&mut OsRng);
+        // q = Uint::<LIMBS>::random(&mut OsRng);
+        
+        // RsaData::bpn_check(p);
+        // RsaData::bpn_check(q);
+        
+        p = crypto_primes::par_generate_prime(16384, 8); //crypto_primes::generate_prime(16384);
+        q = crypto_primes::par_generate_prime(16384, 8); //crypto_primes::generate_prime(16384);
+        // println!("p={p:?} \nq={q:?}\n");
+
+        (p, q)
+    }
+
+    fn coprime(mut a:U32768, mut b:U32768) -> bool
+    {
+        // Евклида Алгоритм
+        let mut r = U32768::ONE;
+
+        while r != U32768::ZERO 
+        {
+            r = b % a;       
+            b = a;
+            a = r;   
+        }
+
+        if b == U32768::ONE {true}
+        else {false}
+    }
+
+    fn secret_exp(e:U32768, phi_n:U32768) -> U32768
+    {
+        // let (_, d, _) = Self::extended_gcd(e, phi_n);
+        e.inv_mod(&phi_n).unwrap()
+    }
+
+    // Генерация ключей длиной 32768 бит
+    pub fn rsa_32768() -> Result<RsaDataU32768, String>
+    {
+        let (p, q) = RsaDataU32768::get_bpn();
+
+        let p_wide: U32768 = p.resize();
+        let q_wide: U32768 = q.resize();
+
+        // phi_n = (p-1)*(q-1)
+        // n = p*q
+        let phi_n: U32768 = (p_wide - U32768::ONE) * (q_wide - U32768::ONE); 
+        let module: U32768 = p_wide * q_wide;
+
+        // Открытая эскопнента
+        let e:U32768 = U32768::from_u64(65537u64);
+
+        // let mut temp:U16384;
+        // // Проверка, что она удовлетворяет условиям
+        // while e > phi_n || !Self::coprime(phi_n, e)
+        // {
+        //     temp = crypto_primes::generate_prime(16384);
+        //     e = temp.resize();
+        // }
+
+        let d = Self::secret_exp(e, phi_n);
+        
+        // println!("p = {p:?}, \nq = {q:?}\n n = {module:?} \ne = {e:?} \nd = {d:?}");
+
+        let data = RsaDataU32768 {p, q, n:module, public_key:e, private_key:d};
+
+        Self::stf(&data);
+
+        Ok(data)
+    }
 }
 
 
