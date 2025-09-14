@@ -113,12 +113,12 @@ fn gN(h: & [u8; 64], m: & [u8; 64], n: & [u8; 64]) -> [u8; 64]
     {
         x = lps(sum_mod2(&k, &x));   // На LPSX[K2]LPSX[K1](m)
 
-        println!("");
-        println!("K_{} = ", n_iter + 1);
-        print_bytes_hex(&k);
-        println!("\nLSPX[K{}] = ", n_iter + 1);
-        print_bytes_hex(&x);
-        println!("");
+        // println!("");
+        // println!("K_{} = ", n_iter + 1);
+        // print_bytes_hex(&k);
+        // println!("\nLSPX[K{}] = ", n_iter + 1);
+        // print_bytes_hex(&x);
+        // println!("");
 
         // K_(i+1) = LPS(K_i sum_mod2 C_i)
         k = lps(sum_mod2(&k, &consts::C[n_iter]));
@@ -128,7 +128,7 @@ fn gN(h: & [u8; 64], m: & [u8; 64], n: & [u8; 64]) -> [u8; 64]
     x = sum_mod2(&x, h);  // E mod_sum2 h
     x = sum_mod2(&x, m);  // E mod_sum2 h mod_sum2 m
 
-    print_bytes_hex(&x);
+    //print_bytes_hex(&x);
 
     x
 }
@@ -158,7 +158,7 @@ pub fn streebog_512(message: &[u8]) -> [u8; 64]
     m.reverse();
 
     h = gN(&h, &m, &n);             // Шаг 3.2
-
+    
     h = gN(&h, &m, &[0; 64]);    // Шаг 3.5
 
 
