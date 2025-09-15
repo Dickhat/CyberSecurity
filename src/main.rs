@@ -10,17 +10,14 @@ fn main() {
     str2[0] = 0x01;
 
     let mut message = hex_to_bytes("323130393837363534333231303938373635343332313039383736353433323130393837363534333231303938373635343332313039383736353433323130");
-
-    //message.reverse();
     
-    streebog::streebog_512(&message);
+    // Стрибог 256
+    //let mut message = hex_to_bytes("fbeafaebef20fffbf0e1e0f0f520e0ed20e8ece0ebe5f0f2f120fff0eeec20f120faf2fee5e2202ce8f6f3ede220e8e6eee1e8f0f2d1202ce8f0f2e5e220e5d1");
+    
+    message.reverse();
 
-    print!("[");
-    for elem in A.iter().rev()
-    {
-        print!("{:#018x},", elem);
-    }
-    print!("]");
+    let hash = streebog::streebog(&message, 256).unwrap();
+
     // let message = "Hello World!".to_string();
     // // let rsa = RsaData::rsa_512().unwrap();
 

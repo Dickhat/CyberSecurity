@@ -1,22 +1,35 @@
 pub mod consts;
 
-fn print_bytes_hex(bytes: &[u8; 64]) {
-    // первая строка: последние 32 байта в обратном порядке
-    for b in bytes[32..].iter().rev() {
-        print!("{:02x}", b);
-    }
-
-    // вторая строка: следующие 20 байт в обратном порядке
-    for b in bytes[12..32].iter().rev() {
-        print!("{:02x}", b);
-    }
-
-    // оставшиеся 12 байт (первые) в обратном порядке
-    for b in bytes[..12].iter().rev() {
+pub fn print_bytes(bytes: &[u8]) {
+    for b in bytes[..].iter().rev() {
         print!("{:02x}", b);
     }
 }
 
+// Суммирование в кольце Z_2^N
+fn sum_mod2_wo<const N: usize>(left: &[u8; N], right: &[u8; N]) -> [u8; N]
+{
+    let mut carry: u16 = 0;
+    let mut out: [u8; N] = [0; N];
+
+    for idx in 0..N
+    {
+        let res: u16 = (left[idx] as u16) + (right[idx] as u16) + carry;
+        out[idx] = res as u8;       // Обрезает старшие биты
+        carry = res >> 8;           // Оставляет старшие биты (бит переноса)
+    }
+
+    out
+}
+
+// Получить мощность сообщения в формате [u8; 64]
+fn power_to_u64(rem: u128) -> [u8; 64]
+{
+    let mut m_power = [0u8; 64];
+    let rem_b = rem.to_le_bytes();
+    m_power[..rem_b.len()].copy_from_slice(&rem_b);
+    m_power
+}
 
 // Суммирование по модулю 2
 fn sum_mod2<const N: usize>(str1: &[u8; N], str2: &[u8; N]) -> [u8; N]
@@ -27,13 +40,8 @@ fn sum_mod2<const N: usize>(str1: &[u8; N], str2: &[u8; N]) -> [u8; N]
     for index in 0..N
     {
         res[index] = str1[index] ^ str2[index];
-        
-        // println!("{:#018x},", str1[index]);
-        // println!("{:#018x},", str2[index]);
-        // println!("{:#018x},", res[index]);
     }
 
-    //println!("{res:?}");
     res
 }
 
@@ -62,7 +70,7 @@ fn mul_matrice(b: [u8; 8]) -> [u8; 8]
     out
 }
 
-pub fn lps(v: [u8; 64]) -> [u8; 64]
+fn lps(v: [u8; 64]) -> [u8; 64]
 {
     let mut res: [u8; 64] = [0; 64];
 
@@ -72,15 +80,12 @@ pub fn lps(v: [u8; 64]) -> [u8; 64]
         res[index] = consts::P[v[index] as usize];
     }
     
-    // println!("{res:?}");
     let src = res;
     //P - Добавить тест
     for index in 0..64 as usize
     {
         res[index] = src[consts::T[index] as usize];
     }
-
-    // println!("{res:?}");
 
     //L - Добавить тест
     for index in 0..8 as usize
@@ -90,8 +95,6 @@ pub fn lps(v: [u8; 64]) -> [u8; 64]
         // По 8 байт обработка
         res[offset..(offset + 8)].copy_from_slice(&mul_matrice(slice)); 
     }
-
-    // println!("{res:?}");
 
     res
 }
@@ -115,9 +118,9 @@ fn gN(h: & [u8; 64], m: & [u8; 64], n: & [u8; 64]) -> [u8; 64]
 
         // println!("");
         // println!("K_{} = ", n_iter + 1);
-        // print_bytes_hex(&k);
+        // print_bytes(&k);
         // println!("\nLSPX[K{}] = ", n_iter + 1);
-        // print_bytes_hex(&x);
+        // print_bytes(&x);
         // println!("");
 
         // K_(i+1) = LPS(K_i sum_mod2 C_i)
@@ -128,49 +131,151 @@ fn gN(h: & [u8; 64], m: & [u8; 64], n: & [u8; 64]) -> [u8; 64]
     x = sum_mod2(&x, h);  // E mod_sum2 h
     x = sum_mod2(&x, m);  // E mod_sum2 h mod_sum2 m
 
-    //print_bytes_hex(&x);
+    //print_bytes(&x);
 
     x
 }
 
-
-pub fn streebog_512(message: &[u8]) -> [u8; 64]
+pub fn streebog(message: &[u8], bit_length: u16) -> Result<Vec<u8>, String>
 {
-    // Этап 1: Присваивание начальных значений
-    let mut h: [u8; 64] = [0; 64];
-    let n: [u8; 64] = [0; 64];
-    let sigma: [u8; 64] = [0; 64];
+    if bit_length != 256 && bit_length != 512
+    {
+        return Err("Bit length must be 256 or 512\n".to_string());
+    }
 
+    // Этап 1: Присваивание начальных значений
+    let mut h: [u8; 64];
+
+    // 00000000 для 512 и 00000001 для 256
+    if bit_length == 256 {h = [1; 64];}
+    else {h = [0; 64];}
+    
+    let mut n: [u8; 64] = [0; 64];
+    let mut sigma: [u8; 64] = [0; 64];
     let mut m: [u8; 64] = [0; 64];
 
+    let mut count512 = 0; // Шаг по исходному сообщение, если оно >= 512
+
     // Этап 2: Проверка длины сообщения
-    while message.len() * 8 >= 512
+    while (message.len() - count512 * 64) * 8  >= 512
     {
-        // Укорачивать сообщение (ДОДЕЛАТЬ)
-        println!("Message >= 512");
+        // Значение 512 в формате [u8; 64]
+        let mut t512: [u8; 64] = [0; 64];
+        t512[1] = 2u8;
+        
+        // Шаг 2.2: получение подвектора длины 512
+        m.copy_from_slice(&message[count512*64..count512 + 64]);
+        
+        h = gN(&h, &m, &n);                          // Шаг 2.3: h := gN(h, m);
+        n = sum_mod2_wo(&n, &t512);      // Шаг 2.4: N := Vec512(lnt512(N) sum_mod2 512);
+        sigma = sum_mod2_wo(&sigma, &m); // Шаг 2.5: sigma := Vec512(lnt512(sigma) sum_mod2 Int512(m));
+        
+        count512 += 1;
     }
 
     // Этап 3: Итерационные вычисление хэш-кода
     // Шаг 3.1: Дополнение нулями
-    m[64 - message.len()..].copy_from_slice(message);
-    m[64 - message.len() - 1] = 1;  // 1 перед сообщением
+    m = [0; 64];
+    m[..(message.len() - count512 * 64)].copy_from_slice(&message[count512*64..]);
+    m[message.len() - count512 * 64] = 1u8;
 
-    m.reverse();
+    h = gN(&h, &m, &n);                             // Шаг 3.2 h := gN(h, m);
 
-    h = gN(&h, &m, &n);             // Шаг 3.2
+    // Мощность сообщения M
+    let m_len = 8 * (message.len() - count512 * 64) as u128;
+
+    // Шаг 3.3 N := Vec512(lnt512(N) sum_mod2 |M|);
+    n = sum_mod2_wo(&n, &power_to_u64(m_len));
     
-    h = gN(&h, &m, &[0; 64]);    // Шаг 3.5
+    sigma = sum_mod2_wo(&sigma, &m);     // Шаг 3.4 Sigma := Vec512(lnt512(Sigma) sum_mod2 lnt512(m));
+    h = gN(&h, &n, &[0; 64]);                   // Шаг 3.5 h := g0(h, N);
 
-
+    // print!("N = ");
+    // print_bytes(&n);
+    // println!();
+    // print!("Sigma = ");
+    // print_bytes(&sigma);
+    // println!();
+    // print!("h = ");
+    // print_bytes(&h);
+    // println!();
+    
     // Шаг 3.6: Выбор длины хэша
-    if 256 == 256
-    {
+    h = gN(&h, &sigma, &[0; 64]);
 
-    }
-    else {
-        
-    }
+    if bit_length == 256 {return Ok(h[32..].to_vec());}
 
     // Шаг 3.7: Возврат хэша
-    h
+    return Ok(h.to_vec());
+}
+
+#[cfg(test)]
+mod tests{
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+    use crate::hex_to_bytes;
+
+    #[test]
+    fn test_streebog512_message_less_512() -> Result<(), String>
+    {
+        let mut hash_true: Vec<u8> = hex_to_bytes("486f64c1917879417fef082b3381a4e211c324f074654c38823a7b76f830ad00fa1fbae42b1285c0352f227524bc9ab16254288dd6863dccd5b9f54a1ad0541b");
+        let mut message = hex_to_bytes("323130393837363534333231303938373635343332313039383736353433323130393837363534333231303938373635343332313039383736353433323130");
+        
+        hash_true.reverse();
+        message.reverse();
+
+        let hash: Vec<u8> = streebog(&message, 512)?;
+
+        assert_eq!(hash_true, hash);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_streebog512_message_greater_512() -> Result<(), String>
+    {
+        let mut hash_true: Vec<u8> = hex_to_bytes("28fbc9bada033b1460642bdcddb90c3fb3e56c497ccd0f62b8a2ad4935e85f037613966de4ee00531ae60f3b5a47f8dae06915d5f2f194996fcabf2622e6881e");
+        let mut message: Vec<u8> = hex_to_bytes("fbe2e5f0eee3c820fbeafaebef20fffbf0e1e0f0f520e0ed20e8ece0ebe5f0f2f120fff0eeec20f120faf2fee5e2202ce8f6f3ede220e8e6eee1e8f0f2d1202ce8f0f2e5e220e5d1");
+
+        hash_true.reverse();
+        message.reverse();
+
+        let hash: Vec<u8> = streebog(&message, 512)?;
+
+        assert_eq!(hash_true, hash);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_streebog256_message_less_512() -> Result<(), String>
+    {
+        let mut hash_true: Vec<u8> = hex_to_bytes("00557be5e584fd52a449b16b0251d05d27f94ab76cbaa6da890b59d8ef1e159d");
+        let mut message: Vec<u8> = hex_to_bytes("323130393837363534333231303938373635343332313039383736353433323130393837363534333231303938373635343332313039383736353433323130");
+
+        hash_true.reverse();
+        message.reverse();
+
+        let hash: Vec<u8> = streebog(&message, 256)?;
+
+        assert_eq!(hash_true, hash);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_streebog256_message_greater_512() -> Result<(), String>
+    {
+        let mut hash_true: Vec<u8> = hex_to_bytes("508f7e553c06501d749a66fc28c6cac0b005746d97537fa85d9e40904efed29d");
+        let mut message: Vec<u8> = hex_to_bytes("fbe2e5f0eee3c820fbeafaebef20fffbf0e1e0f0f520e0ed20e8ece0ebe5f0f2f120fff0eeec20f120faf2fee5e2202ce8f6f3ede220e8e6eee1e8f0f2d1202ce8f0f2e5e220e5d1");
+
+        hash_true.reverse();
+        message.reverse();
+
+        let hash: Vec<u8> = streebog(&message, 256)?;
+
+        assert_eq!(hash_true, hash);
+
+        Ok(())
+    }
 }
