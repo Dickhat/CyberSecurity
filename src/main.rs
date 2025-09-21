@@ -1,5 +1,5 @@
 pub mod algorithms;
-use algorithms::{streebog::consts::A, streebog, hex_to_bytes};
+use algorithms::{streebog, hex_to_bytes};
 
 
 fn main() {
