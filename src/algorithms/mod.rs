@@ -1,5 +1,6 @@
 pub mod rsa;
 pub mod streebog;
+pub mod kuznechik;
 
 // Перевод шестнацетиричных чисел в байты
 pub fn hex_to_bytes(hex: &str) -> Vec<u8> {
