@@ -1,6 +1,3 @@
-use crypto_primes::generate_prime;
-use crypto_bigint::U512;
-
 /// Nonlinear bijective transformation 
 const KUZ_PI : [u8; 256] = [
 	252, 238, 221, 17, 207, 110, 49, 22, 251, 196, 250, 218, 35, 197, 4, 77,
@@ -32,10 +29,6 @@ pub fn key_generate() -> [u8; 32]
 /// Шифрование M по блокам длины 128
 pub fn encryption()
 {
-    let mut prime1: U512 = generate_prime(512);
-    let mut prime2: U512 = generate_prime(512);
-
-    let key = key_generate();
 }
 
 /// Расшифрование M по блокам длины 128
