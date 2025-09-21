@@ -32,3 +32,5 @@ jobs:
     steps:
     - name: automerge
       run: gh pr merge ${{ github.event.pull_request.number }} --auto --squash
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
