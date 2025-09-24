@@ -1,10 +1,10 @@
-use std::vec;
+use std::{fs::File, io::{BufRead, BufReader, Write}, path::{Path, PathBuf}, vec};
 
-use crate::algorithms::{hex_to_bytes, kuznechik::consts::{KUZ_PI, L_VEC}};
+use crate::algorithms::{hex_to_bytes, to_hex, kuznechik::consts::{KUZ_PI, L_VEC}};
 
 pub mod consts;
 
-/// Конечное поле GF(2)[x]/p(x), где р(х) = х^8 + х^7 + х^6 + х + 1 принадлежит GF(2)[x]; 
+/// Конечное поле GF(2){x}/p(x), где р(х) = х^8 + х^7 + х^6 + х + 1 принадлежит GF(2){x}; 
 /// элементы поля F представляются целыми числами, причем элементу z0 + z1•t + ... + z7•t, принадлежащему F, соответствует число z0+ 2•z1 + ...+2•z7,
 /// где zi принадлежит {0, 1}, i = 0, 1,..., 7, и t обозначает класс вычетов по модулю р(х), содержащий х;
 pub fn mul_gf2_px(elem1: &u8, elem2: &u8) -> u8
@@ -169,7 +169,7 @@ pub fn key_generate() -> (Vec<u8>, Vec<[u8; 16]>)
 	for i in 1..5 as usize
 	{
 		// F [С_8(i-1)+8]...F[С_8(i-1)+1](K_2i-1, K_2i)
-		for iter in 1..9 as usize
+		for iter in 0..8 as usize
 		{
 			(k1, k2) = fk(&c_vec[8 * (i - 1) + iter], &k1, &k2);
 		}
@@ -179,17 +179,83 @@ pub fn key_generate() -> (Vec<u8>, Vec<[u8; 16]>)
 		k_vec.push(k2);
 	}
 
-	(k, k_vec)
+	let pair_keys = (k, k_vec);
+
+	let path: PathBuf = PathBuf::from("./kuznehcik_keys");
+	save_keys_into_file(&pair_keys, &path);
+
+	pair_keys
 }
 
-// /// Шифрование M по блокам длины 128
-// pub fn encryption()
-// {
-//     let mut prime1: U512 = generate_prime(512);
-//     let mut prime2: U512 = generate_prime(512);
+fn save_keys_into_file(keys: &(Vec<u8>, Vec<[u8; 16]>), path: &PathBuf) -> PathBuf
+{
+	let mut file = File::create(path).unwrap();
 
-//     let key = key_generate();
-// }
+	writeln!(file, "K = {}", to_hex(&keys.0)).unwrap();
+
+	// Запись всех итерационных ключей в файл
+	for idx in 0..keys.1.len()
+	{
+		writeln!(file, "K{} = {}", idx + 1, to_hex(&keys.1[idx])).unwrap();
+	}
+
+	path.clone()
+}
+
+pub fn get_keys_from_file(path: &PathBuf) -> (Vec<u8>, Vec<[u8; 16]>)
+{
+    let file = File::open(path).expect("Не удалось открыть файл");
+	let reader = BufReader::new(file);
+
+	let mut main_key: Vec<u8> = Vec::new();
+    let mut round_keys: Vec<[u8; 16]> = Vec::new();
+
+	for line in reader.lines() {
+		let line = line.expect("Ошибка чтения строки");
+
+        let parts: Vec<&str> = line.split('=').map(|s| s.trim()).collect();
+
+        let name = parts[0];
+        let value = parts[1];
+
+        let mut bytes = hex_to_bytes(value);
+		bytes.reverse();
+
+		if name == "K" {
+			main_key = bytes;
+		}
+		else {
+			let mut arr = [0u8; 16];
+			arr.copy_from_slice(&bytes);
+			round_keys.push(arr);
+		}
+    }
+
+	(main_key, round_keys)
+}
+
+/// Шифрование Message блоками длины 128 бит
+pub fn encryption(message: &[u8], keys: &(Vec<u8>, Vec<[u8; 16]>))
+{
+    let key = key_generate();
+	let mut file = File::create(PathBuf::from("./encryption_kuznechik")).unwrap();
+
+	// Шифрование блоками по 128 бит (16 байт)
+	for chunk in message.chunks(16)
+	{
+		let mut a:[u8; 16] = [0; 16];
+		a[0..chunk.len()].copy_from_slice(chunk);
+
+		for iter in 0..9
+		{
+			a = lsx(&key.1[iter], &a);
+		}
+
+		a = x(&key.1[9], &a);
+		
+		write!(file, "{}", to_hex(&a)).unwrap();
+	}
+}
 
 // /// Расшифрование M по блокам длины 128
 // pub fn decryption()
@@ -200,7 +266,9 @@ pub fn key_generate() -> (Vec<u8>, Vec<[u8; 16]>)
 #[cfg(test)]
 mod tests
 {
-	// Note this useful idiom: importing names from outer (for mod tests) scope.
+	use std::io::Read;
+
+// Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
     use crate::algorithms::hex_to_bytes;
 	use crate::algorithms::streebog::print_bytes;
@@ -471,5 +539,31 @@ mod tests
 		{
 			assert_eq!(k_vec[idx].to_vec(), correct_results[idx]);
 		}
+	}
+
+	#[test]
+	fn test_encryption_kuznechik()
+	{
+		let keys = key_generate();
+		
+		let mut message = hex_to_bytes("1122334455667700ffeeddccbbaa9988");
+    	message.reverse();
+
+		encryption(&message, &keys);
+
+		let file = File::open(PathBuf::from("./encryption_kuznechik")).expect("Не удалось открыть файл");
+		let mut reader = BufReader::new(file);
+
+		// Чтение строки из файла результата
+		let mut buf = String::new();
+		reader.read_line(& mut buf).unwrap();
+    	let buf = buf.trim();
+
+		let bytes = hex_to_bytes(&buf);
+
+		// Правильный результат
+		let result = hex_to_bytes("7f679d90bebc24305a468d42b9d4edcd");
+
+		assert_eq!(bytes, result);
 	}
 }
