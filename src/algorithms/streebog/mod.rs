@@ -1,4 +1,5 @@
 pub mod consts;
+use crate::algorithms::hex_to_bytes;
 
 pub fn print_bytes(bytes: &[u8]) {
     for b in bytes[..].iter().rev() {
@@ -213,7 +214,7 @@ pub fn streebog(message: &[u8], bit_length: u16) -> Result<Vec<u8>, String>
 mod tests{
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
-    use crate::hex_to_bytes;
+    use crate::algorithms::hex_to_bytes;
 
     #[test]
     fn test_streebog512_message_less_512() -> Result<(), String>

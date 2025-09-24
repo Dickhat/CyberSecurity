@@ -1,8 +1,5 @@
-use crypto_primes::generate_prime;
-use crypto_bigint::U512;
-
-/// Nonlinear bijective transformation 
-const KUZ_PI : [u8; 256] = [
+/// Nonlinear bijective transformation 4.1.1 in ГОСТ Р 34.12-2018
+pub const KUZ_PI : [u8; 256] = [
 	252, 238, 221, 17, 207, 110, 49, 22, 251, 196, 250, 218, 35, 197, 4, 77,
 	233, 119, 240, 219, 147, 46, 153, 186, 23, 54, 241, 187, 20, 205, 95, 193,
 	249, 24, 101, 90, 226, 92, 239, 33, 129, 28, 60, 66, 139, 1, 142, 79, 5,
@@ -21,25 +18,5 @@ const KUZ_PI : [u8; 256] = [
 	244, 180, 192, 209, 102, 175, 194, 57, 75, 99, 182 
 ];
 
-/// Создание ключа длиной 256 бит
-pub fn key_generate() -> [u8; 32]
-{
-
-    let temp:[u8; 32] = [0; 32];
-    temp
-}
-
-/// Шифрование M по блокам длины 128
-pub fn encryption()
-{
-    let mut prime1: U512 = generate_prime(512);
-    let mut prime2: U512 = generate_prime(512);
-
-    let key = key_generate();
-}
-
-/// Расшифрование M по блокам длины 128
-pub fn decryption()
-{
-
-}
+/// component of linear transformation in ГОСТ Р 34.12-2018 (1)
+pub const L_VEC: [u8; 16] = [1, 148, 32, 133, 16, 194, 192, 1, 251, 1, 192, 194, 16, 133, 32, 148];
