@@ -1,4 +1,5 @@
 pub mod consts;
+use crate::algorithms::hex_to_bytes;
 
 pub fn print_bytes(bytes: &[u8]) {
     for b in bytes[..].iter().rev() {
@@ -100,9 +101,9 @@ fn lps(v: [u8; 64]) -> [u8; 64]
 }
 
 // Функция сжатия
-fn gN(h: & [u8; 64], m: & [u8; 64], n: & [u8; 64]) -> [u8; 64]
+fn gn(h: & [u8; 64], m: & [u8; 64], n: & [u8; 64]) -> [u8; 64]
 {
-    let mut k: [u8; 64] = [0; 64];
+    let mut k: [u8; 64];
     let mut x: [u8; 64] = [0; 64];
 
     //K_1 = LPS(h sum_mod2 N)
@@ -166,7 +167,7 @@ pub fn streebog(message: &[u8], bit_length: u16) -> Result<Vec<u8>, String>
         // Шаг 2.2: получение подвектора длины 512
         m.copy_from_slice(&message[count512*64..count512 + 64]);
         
-        h = gN(&h, &m, &n);                          // Шаг 2.3: h := gN(h, m);
+        h = gn(&h, &m, &n);                          // Шаг 2.3: h := gn(h, m);
         n = sum_mod2_wo(&n, &t512);      // Шаг 2.4: N := Vec512(lnt512(N) sum_mod2 512);
         sigma = sum_mod2_wo(&sigma, &m); // Шаг 2.5: sigma := Vec512(lnt512(sigma) sum_mod2 Int512(m));
         
@@ -179,7 +180,7 @@ pub fn streebog(message: &[u8], bit_length: u16) -> Result<Vec<u8>, String>
     m[..(message.len() - count512 * 64)].copy_from_slice(&message[count512*64..]);
     m[message.len() - count512 * 64] = 1u8;
 
-    h = gN(&h, &m, &n);                             // Шаг 3.2 h := gN(h, m);
+    h = gn(&h, &m, &n);                             // Шаг 3.2 h := gn(h, m);
 
     // Мощность сообщения M
     let m_len = 8 * (message.len() - count512 * 64) as u128;
@@ -188,7 +189,7 @@ pub fn streebog(message: &[u8], bit_length: u16) -> Result<Vec<u8>, String>
     n = sum_mod2_wo(&n, &power_to_u64(m_len));
     
     sigma = sum_mod2_wo(&sigma, &m);     // Шаг 3.4 Sigma := Vec512(lnt512(Sigma) sum_mod2 lnt512(m));
-    h = gN(&h, &n, &[0; 64]);                   // Шаг 3.5 h := g0(h, N);
+    h = gn(&h, &n, &[0; 64]);                   // Шаг 3.5 h := g0(h, N);
 
     // print!("N = ");
     // print_bytes(&n);
@@ -201,7 +202,7 @@ pub fn streebog(message: &[u8], bit_length: u16) -> Result<Vec<u8>, String>
     // println!();
     
     // Шаг 3.6: Выбор длины хэша
-    h = gN(&h, &sigma, &[0; 64]);
+    h = gn(&h, &sigma, &[0; 64]);
 
     if bit_length == 256 {return Ok(h[32..].to_vec());}
 
@@ -213,7 +214,7 @@ pub fn streebog(message: &[u8], bit_length: u16) -> Result<Vec<u8>, String>
 mod tests{
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
-    use crate::hex_to_bytes;
+    use crate::algorithms::hex_to_bytes;
 
     #[test]
     fn test_streebog512_message_less_512() -> Result<(), String>
