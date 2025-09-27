@@ -32,6 +32,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4 
     - name: automerge
-      run: gh pr merge ${{ github.event.pull_request.number }} --auto --squash
+      run: gh pr merge ${{ github.event.pull_request.number }} --merge
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
