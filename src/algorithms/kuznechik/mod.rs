@@ -1,273 +1,363 @@
 use std::{fs::File, io::{BufRead, BufReader, Write}, path::{Path, PathBuf}, vec};
 
-use crate::algorithms::{hex_to_bytes, to_hex, kuznechik::consts::{KUZ_PI, L_VEC}};
+use crate::algorithms::{hex_to_bytes, kuznechik::consts::{KUZ_PI, KUZ_PI_INV, L_VEC}, to_hex};
 
 pub mod consts;
 
-/// Конечное поле GF(2){x}/p(x), где р(х) = х^8 + х^7 + х^6 + х + 1 принадлежит GF(2){x}; 
-/// элементы поля F представляются целыми числами, причем элементу z0 + z1•t + ... + z7•t, принадлежащему F, соответствует число z0+ 2•z1 + ...+2•z7,
-/// где zi принадлежит {0, 1}, i = 0, 1,..., 7, и t обозначает класс вычетов по модулю р(х), содержащий х;
-pub fn mul_gf2_px(elem1: &u8, elem2: &u8) -> u8
+pub struct Kuznehcik
 {
-	let px: u8 = 0b1100_0011; // Для операции XOR. х^8 + х^7 + х^6 + х + 1
-	
-	let mut a = *elem1;
-	let mut b = *elem2;
-	let mut res: u8 = 0;
+	keys: (Vec<u8>, Vec<[u8; 16]>)
+}
 
-	let mut carry = 0; // Проверка, что степень числа < 8
-
-	for _ in 0..8
+impl Kuznehcik
+{
+	/// Конечное поле GF(2){x}/p(x), где р(х) = х^8 + х^7 + х^6 + х + 1 принадлежит GF(2){x}; 
+	/// элементы поля F представляются целыми числами, причем элементу z0 + z1•t + ... + z7•t, принадлежащему F, соответствует число z0+ 2•z1 + ...+2•z7,
+	/// где zi принадлежит {0, 1}, i = 0, 1,..., 7, и t обозначает класс вычетов по модулю р(х), содержащий х;
+	fn mul_gf2_px(elem1: &u8, elem2: &u8) -> u8
 	{
-		// Младший бит 1 - значит умножаем
-		if b & 1 != 0
+		let px: u8 = 0b1100_0011; // Для операции XOR. х^8 + х^7 + х^6 + х + 1
+		
+		let mut a = *elem1;
+		let mut b = *elem2;
+		let mut res: u8 = 0;
+
+		let mut carry; // Проверка, что степень числа < 8
+
+		for _ in 0..8
 		{
-			res ^= a;
+			// Младший бит 1 - значит умножаем
+			if b & 1 != 0
+			{
+				res ^= a;
+			}
+
+			carry = a & 0x80;
+			a <<= 1;	// Сдвиг влево множимого
+
+			if carry != 0
+			{
+				a ^= px; // Xor множимого, так как степень > 7
+			}
+
+			b >>= 1;	// Сдвиг множителя право
 		}
 
-		carry = a & 0x80;
-		a <<= 1;	// Сдвиг влево множимого
+		res
+	}
 
-		if carry != 0
+	// linear transformation
+	fn linear(a: &[u8; 16]) -> u8
+	{
+		let mut res: u8 = 0;
+
+		for (idx, elem) in a.iter().enumerate()
 		{
-			a ^= px; // Xor множимого, так как степень > 7
+			// Formula (1) page 3 in ГОСТ Р 34.12-2018
+			res = res ^ &Self::mul_gf2_px(elem, &L_VEC[idx]);
 		}
 
-		b >>= 1;	// Сдвиг множителя право
+		res
 	}
 
-	res
-}
-
-// linear transformation
-fn linear(a: &[u8; 16]) -> u8
-{
-	let mut res: u8 = 0;
-
-	for (idx, elem) in a.iter().enumerate()
+	// Formula (2) page 4 in ГОСТ Р 34.12-2018
+	fn x(k: &[u8; 16], a: &[u8; 16]) -> [u8; 16]
 	{
-		// Formula (1) page 3 in ГОСТ Р 34.12-2018
-		res = res ^ &mul_gf2_px(elem, &L_VEC[idx]);
-	}
+		let mut res: [u8; 16] = [0; 16];
 
-	res
-}
-
-// Formula (2) page 4 in ГОСТ Р 34.12-2018
-fn x(k: &[u8; 16], a: &[u8; 16]) -> [u8; 16]
-{
-	let mut res: [u8; 16] = [0; 16];
-
-	for idx in 0..16
-	{
-		res[idx] = k[idx] ^ a[idx];
-	}
-
-	res
-}
-
-// Formula (3) page 4 in ГОСТ Р 34.12-2018
-fn s(a: &[u8; 16]) -> [u8; 16]
-{
-	let mut res: [u8; 16] = [0; 16];
-
-	for idx in 0..16 as usize
-	{
-		res[idx] = KUZ_PI[a[idx] as usize];
-	}
-
-	res
-}
-
-// Formula (5) page 4 in ГОСТ Р 34.12-2018
-fn r(a: &[u8; 16]) -> [u8; 16]
-{
-	let mut res: [u8; 16] = [0; 16];
-
-	let l_part = linear(a);
-
-	// l_part||а15, ..., а1
-	res[15] = l_part;
-	res[..15].copy_from_slice(&a[1..]);
-	
-	res
-}
-
-// Formula (6) page 4 in ГОСТ Р 34.12-2018
-fn l(a: &[u8; 16]) -> [u8; 16]
-{
-	let mut res: [u8; 16] = a.clone();
-
-	for _ in 0..16{
-		res = r(&res);
-	}
-
-	res
-}
-
-// Sequence of operations in order x, s, l 
-fn lsx(k: &[u8; 16], a: &[u8; 16]) -> [u8; 16]
-{
-	let mut res: [u8; 16] = [0; 16];
-
-	res = x(k, a);
-	res = s(&res);
-	res = l(&res);
-
-	res
-}
-
-// Formula (9) page 4 in ГОСТ Р 34.12-2018
-fn fk(k: &[u8; 16], a1: &[u8; 16], a0: &[u8; 16]) -> ([u8; 16], [u8; 16])
-{
-	let mut res: [u8; 16] = [0; 16];
-
-	res = lsx(k, a1);
-	res = x(&res, a0);	// Можно использовать X, т.к. оно реализует суммирование mod2
-
-	(res, a1.clone())
-}
-
-// Formula (10) page 4 in ГОСТ Р 34.12-2018
-fn iterational_constants() -> Vec<[u8; 16]>
-{
-	let mut c_vec: Vec<[u8; 16]> = vec![];
-	let mut value: [u8; 16];
-
-	for i in 1..33 as u8
-	{
-		value = [0; 16];
-		value[0] = i;
-
-		c_vec.push(l(&value));
-	}
-
-	c_vec
-}
-
-/// Создание ключа длиной 256 бит, а также 10 итерационных ключей
-/// Результат: (Ключ_K, вектор_итерационных_ключей)
-/// Добавить генерацию случайного ключа K
-pub fn key_generate() -> (Vec<u8>, Vec<[u8; 16]>)
-{
-	let c_vec = iterational_constants();
-	
-	// Ключ из ГОСТ Р. Возможно после заменить на случайную генерацию
-	let mut k = hex_to_bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef");
-	k.reverse();
-
-	let mut k_vec: Vec<[u8; 16]> = Vec::with_capacity(10);	// Все итерационные ключи
-	
-	let mut k1: [u8; 16] = [0; 16];
-	k1.copy_from_slice(&k[16..]);
-	k_vec.push(k1);
-
-	let mut k2: [u8; 16] = [0; 16];
-	k2.copy_from_slice(&k[..16]);
-	k_vec.push(k2);
-
-	for i in 1..5 as usize
-	{
-		// F [С_8(i-1)+8]...F[С_8(i-1)+1](K_2i-1, K_2i)
-		for iter in 0..8 as usize
+		for idx in 0..16
 		{
-			(k1, k2) = fk(&c_vec[8 * (i - 1) + iter], &k1, &k2);
+			res[idx] = k[idx] ^ a[idx];
 		}
 
-		// Пушит копию (до 32 байт)
+		res
+	}
+
+	// Formula (3) page 4 in ГОСТ Р 34.12-2018
+	fn s(a: &[u8; 16]) -> [u8; 16]
+	{
+		let mut res: [u8; 16] = [0; 16];
+
+		for idx in 0..16 as usize
+		{
+			res[idx] = KUZ_PI[a[idx] as usize];
+		}
+
+		res
+	}
+
+	// Formula (4) page 4 in ГОСТ Р 34.12-2018
+	fn s_inv(a: &[u8; 16]) -> [u8; 16]
+	{
+		let mut res: [u8; 16] = [0; 16];
+
+		for idx in 0..16 as usize
+		{
+			res[idx] = KUZ_PI_INV[a[idx] as usize];
+		}
+
+		res
+	}
+
+	// Formula (5) page 4 in ГОСТ Р 34.12-2018
+	fn r(a: &[u8; 16]) -> [u8; 16]
+	{
+		let mut res: [u8; 16] = [0; 16];
+
+		let l_part = Self::linear(a);
+
+		// l_part||а15, ..., а1
+		res[15] = l_part;
+		res[..15].copy_from_slice(&a[1..]);
+		
+		res
+	}
+
+	// Formula (7) page 4 in ГОСТ Р 34.12-2018
+	fn r_inv(a: &[u8; 16]) -> [u8; 16]
+	{
+		let mut res: [u8; 16] = [0; 16];
+		let mut permutation: [u8; 16] = [0; 16];	// а14, а13, ..., а0, а15
+
+		// Create а14, а13, ..., а0, а15
+		permutation[0] = a[15].clone();
+		permutation[1..].copy_from_slice(&a[0..15]);
+
+		// (а14, а13, ..., а0, а15)
+		let l_part = Self::linear(&permutation);
+
+		// а14, ..., а0||l_part
+		res[0] = l_part;
+		res[1..].copy_from_slice(&permutation[1..]);
+		
+		res
+	}
+
+	// Formula (6) page 4 in ГОСТ Р 34.12-2018
+	fn l(a: &[u8; 16]) -> [u8; 16]
+	{
+		let mut res: [u8; 16] = a.clone();
+
+		for _ in 0..16{
+			res = Self::r(&res);
+		}
+
+		res
+	}
+
+	// Formula (8) page 4 in ГОСТ Р 34.12-2018
+	fn l_inv(a: &[u8; 16]) -> [u8; 16]
+	{
+		let mut res: [u8; 16] = a.clone();
+
+		for _ in 0..16{
+			res = Self::r_inv(&res);
+		}
+
+		res
+	}
+
+	// Sequence of operations in order x, s, l 
+	fn lsx(k: &[u8; 16], a: &[u8; 16]) -> [u8; 16]
+	{
+		let mut res: [u8; 16];
+
+		res = Self::x(k, a);
+		res = Self::s(&res);
+		res = Self::l(&res);
+
+		res
+	}
+
+	// Sequence of operations in order x, l_inv, s_inv 
+	fn s_inv_l_inv_x(k: &[u8; 16], a: &[u8; 16]) -> [u8; 16]
+	{
+		let mut res: [u8; 16];
+
+		res = Self::x(k, a);
+		res = Self::l_inv(&res);
+		res = Self::s_inv(&res);
+
+		res
+	}
+
+	// Formula (9) page 4 in ГОСТ Р 34.12-2018
+	fn fk(k: &[u8; 16], a1: &[u8; 16], a0: &[u8; 16]) -> ([u8; 16], [u8; 16])
+	{
+		let mut res: [u8; 16];
+
+		res = Self::lsx(k, a1);
+		res = Self::x(&res, a0);	// Можно использовать X, т.к. оно реализует суммирование mod2
+
+		(res, a1.clone())
+	}
+
+	// Formula (10) page 4 in ГОСТ Р 34.12-2018
+	fn iterational_constants() -> Vec<[u8; 16]>
+	{
+		let mut c_vec: Vec<[u8; 16]> = vec![];
+		let mut value: [u8; 16];
+
+		for i in 1..33 as u8
+		{
+			value = [0; 16];
+			value[0] = i;
+
+			c_vec.push(Self::l(&value));
+		}
+
+		c_vec
+	}
+
+	/// Создание ключа длиной 256 бит, а также 10 итерационных ключей
+	/// Результат: (Ключ_K, вектор_итерационных_ключей)
+	/// Добавить генерацию случайного ключа K
+	pub fn key_generate() -> (Vec<u8>, Vec<[u8; 16]>)
+	{
+		let c_vec = Self::iterational_constants();
+		
+		// Ключ из ГОСТ Р. Возможно после заменить на случайную генерацию
+		let mut k = hex_to_bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef");
+		k.reverse();
+
+		let mut k_vec: Vec<[u8; 16]> = Vec::with_capacity(10);	// Все итерационные ключи
+		
+		let mut k1: [u8; 16] = [0; 16];
+		k1.copy_from_slice(&k[16..]);
 		k_vec.push(k1);
+
+		let mut k2: [u8; 16] = [0; 16];
+		k2.copy_from_slice(&k[..16]);
 		k_vec.push(k2);
+
+		for i in 1..5 as usize
+		{
+			// F [С_8(i-1)+8]...F[С_8(i-1)+1](K_2i-1, K_2i)
+			for iter in 0..8 as usize
+			{
+				(k1, k2) = Self::fk(&c_vec[8 * (i - 1) + iter], &k1, &k2);
+			}
+
+			// Пушит копию (до 32 байт)
+			k_vec.push(k1);
+			k_vec.push(k2);
+		}
+
+		let pair_keys = (k, k_vec);
+
+		let path: PathBuf = PathBuf::from("./kuznehcik_keys");
+		Self::save_keys_into_file(&pair_keys, &path);
+
+		pair_keys
 	}
 
-	let pair_keys = (k, k_vec);
-
-	let path: PathBuf = PathBuf::from("./kuznehcik_keys");
-	save_keys_into_file(&pair_keys, &path);
-
-	pair_keys
-}
-
-fn save_keys_into_file(keys: &(Vec<u8>, Vec<[u8; 16]>), path: &PathBuf) -> PathBuf
-{
-	let mut file = File::create(path).unwrap();
-
-	writeln!(file, "K = {}", to_hex(&keys.0)).unwrap();
-
-	// Запись всех итерационных ключей в файл
-	for idx in 0..keys.1.len()
+	pub fn save_keys_into_file(keys: &(Vec<u8>, Vec<[u8; 16]>), path: &PathBuf) -> PathBuf
 	{
-		writeln!(file, "K{} = {}", idx + 1, to_hex(&keys.1[idx])).unwrap();
+		let mut file = File::create(path).unwrap();
+
+		writeln!(file, "K = {}", to_hex(&keys.0)).unwrap();
+
+		// Запись всех итерационных ключей в файл
+		for idx in 0..keys.1.len()
+		{
+			writeln!(file, "K{} = {}", idx + 1, to_hex(&keys.1[idx])).unwrap();
+		}
+
+		path.clone()
 	}
 
-	path.clone()
-}
-
-pub fn get_keys_from_file(path: &PathBuf) -> (Vec<u8>, Vec<[u8; 16]>)
-{
-    let file = File::open(path).expect("Не удалось открыть файл");
-	let reader = BufReader::new(file);
-
-	let mut main_key: Vec<u8> = Vec::new();
-    let mut round_keys: Vec<[u8; 16]> = Vec::new();
-
-	for line in reader.lines() {
-		let line = line.expect("Ошибка чтения строки");
-
-        let parts: Vec<&str> = line.split('=').map(|s| s.trim()).collect();
-
-        let name = parts[0];
-        let value = parts[1];
-
-        let mut bytes = hex_to_bytes(value);
-		bytes.reverse();
-
-		if name == "K" {
-			main_key = bytes;
-		}
-		else {
-			let mut arr = [0u8; 16];
-			arr.copy_from_slice(&bytes);
-			round_keys.push(arr);
-		}
-    }
-
-	(main_key, round_keys)
-}
-
-/// Шифрование Message блоками длины 128 бит
-pub fn encryption(message: &[u8], keys: &(Vec<u8>, Vec<[u8; 16]>))
-{
-    let key = key_generate();
-	let mut file = File::create(PathBuf::from("./encryption_kuznechik")).unwrap();
-
-	// Шифрование блоками по 128 бит (16 байт)
-	for chunk in message.chunks(16)
+	pub fn get_keys_from_file(path: &PathBuf) -> (Vec<u8>, Vec<[u8; 16]>)
 	{
+		let file = File::open(path).expect("Не удалось открыть файл");
+		let reader = BufReader::new(file);
+
+		let mut main_key: Vec<u8> = Vec::new();
+		let mut round_keys: Vec<[u8; 16]> = Vec::new();
+
+		for line in reader.lines() {
+			let line = line.expect("Ошибка чтения строки");
+
+			let parts: Vec<&str> = line.split('=').map(|s| s.trim()).collect();
+
+			let name = parts[0];
+			let value = parts[1];
+
+			let mut bytes = hex_to_bytes(value);
+			bytes.reverse();
+
+			if name == "K" {
+				main_key = bytes;
+			}
+			else {
+				let mut arr = [0u8; 16];
+				arr.copy_from_slice(&bytes);
+				round_keys.push(arr);
+			}
+		}
+
+		(main_key, round_keys)
+	}
+
+	/// Шифрование Message блоками длины 128 бит
+	pub fn encrypt(&self, message: &[u8]) -> Result<[u8; 16], String>
+	{
+		// let mut file = File::create(PathBuf::from("./encryption_kuznechik")).unwrap();
+
+		if message.len()*8 != 128
+		{
+			return Err("Message must be len = 128 bits".to_string());
+		} 
+
+		// Шифрование блока 128 бит (16 байт)
 		let mut a:[u8; 16] = [0; 16];
-		a[0..chunk.len()].copy_from_slice(chunk);
+		a.copy_from_slice(message);
 
 		for iter in 0..9
 		{
-			a = lsx(&key.1[iter], &a);
+			a = Self::lsx(&self.keys.1[iter], &a);
 		}
 
-		a = x(&key.1[9], &a);
+		a = Self::x(&self.keys.1[9], &a);
 		
-		write!(file, "{}", to_hex(&a)).unwrap();
+		// write!(file, "{}", to_hex(&a)).unwrap();
+
+		return Ok(a);
 	}
+
+	/// Расшифрование M по блокам длины 128
+	pub fn decryption(&self, message: &[u8]) -> Result<[u8; 16], String>
+	{
+		if message.len()*8 != 128
+		{
+			return Err("Message must be len = 128 bits".to_string());
+		}
+
+		// Расшифрование блока 128 бит (16 байт)
+		let mut a:[u8; 16] = [0; 16];
+		a.copy_from_slice(message);
+
+		for iter in 0..9
+		{
+			a = Self::s_inv_l_inv_x(&self.keys.1[9 - iter], &a);
+		}
+
+		a = Self::x(&self.keys.1[0], &a);
+
+		Ok(a)
+	}
+
+	// Создает структуру с инициализированными изначально ключами
+	pub fn new() -> Self
+	{
+		Self { keys: Self::key_generate() }
+	}
+
+
 }
-
-// /// Расшифрование M по блокам длины 128
-// pub fn decryption()
-// {
-
-// }
 
 #[cfg(test)]
 mod tests
 {
-	use std::io::Read;
-
 // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
     use crate::algorithms::hex_to_bytes;
@@ -292,16 +382,16 @@ mod tests
 		r4.reverse();
 		
 		// Проверки
-		let mut res = r(&arr);
+		let mut res = Kuznehcik::r(&arr);
 		assert_eq!(res.to_vec(), r1);
 
-		res = r(&res);
+		res = Kuznehcik::r(&res);
 		assert_eq!(res.to_vec(), r2);
 
-		res = r(&res);
+		res = Kuznehcik::r(&res);
 		assert_eq!(res.to_vec(), r3);
 
-		res = r(&res);	
+		res = Kuznehcik::r(&res);	
 		assert_eq!(res.to_vec(), r4);
 	}
 
@@ -324,23 +414,23 @@ mod tests
 		l4.reverse();
 		
 		// Проверки
-		let mut res = l(&arr);
+		let mut res = Kuznehcik::l(&arr);
 		assert_eq!(res.to_vec(), l1);
 
-		res = l(&res);
+		res = Kuznehcik::l(&res);
 		assert_eq!(res.to_vec(), l2);
 
-		res = l(&res);
+		res = Kuznehcik::l(&res);
 		assert_eq!(res.to_vec(), l3);
-
-		res = l(&res);	
+		
+		res = Kuznehcik::l(&res);	
 		assert_eq!(res.to_vec(), l4);
 	}
 
 	#[test]
 	fn test_c_constants()
 	{
-		let c_vec = iterational_constants();
+		let c_vec = Kuznehcik::iterational_constants();
 		let mut c_correct_vec = Vec::with_capacity(8);
 
 		// Правильные ответы
@@ -387,7 +477,7 @@ mod tests
 	fn test_fc()
 	{
 		// Начальные данные
-		let c_vec = iterational_constants();
+		let c_vec = Kuznehcik::iterational_constants();
 
 		let mut k = hex_to_bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef");
 		k.reverse();
@@ -456,7 +546,7 @@ mod tests
 		// F [С_8(i-1)+8]...F[С_8(i-1)+1](K_2i-1, K_2i)
 		for iter in 0..8 as usize
 		{
-			(k1, k2) = fk(&c_vec[8 * (i - 1) + iter], &k1, &k2);
+			(k1, k2) = Kuznehcik::fk(&c_vec[8 * (i - 1) + iter], &k1, &k2);
 			assert_eq!((k1.to_vec(), k2.to_vec()), correct_results[iter]);
 		}
 	}
@@ -465,7 +555,7 @@ mod tests
 	fn test_iterational_keys()
 	{
 		// Начальные данные
-		let c_vec = iterational_constants();
+		let c_vec = Kuznehcik::iterational_constants();
 		let mut k_vec = Vec::with_capacity(10);
 
 		let mut k = hex_to_bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef");
@@ -485,7 +575,7 @@ mod tests
 			// F [С_8(i-1)+8]...F[С_8(i-1)+1](K_2i-1, K_2i)
 			for iter in 0..8 as usize
 			{
-				(k1, k2) = fk(&c_vec[8 * (i - 1) + iter], &k1, &k2);
+				(k1, k2) = Kuznehcik::fk(&c_vec[8 * (i - 1) + iter], &k1, &k2);
 			}
 
 			k_vec.push(k1);
@@ -544,26 +634,107 @@ mod tests
 	#[test]
 	fn test_encryption_kuznechik()
 	{
-		let keys = key_generate();
+		// Precomputed keys
+		let mut k = hex_to_bytes("8899AABBCCDDEEFF0011223344556677FEDCBA98765432100123456789ABCDEF");
+		k.reverse();
+		let mut k1 = hex_to_bytes("8899AABBCCDDEEFF0011223344556677");
+		k1.reverse();
+		let mut k2 = hex_to_bytes("FEDCBA98765432100123456789ABCDEF");
+		k2.reverse();
+		let mut k3 = hex_to_bytes("DB31485315694343228D6AEF8CC78C44");
+		k3.reverse();
+		let mut k4 = hex_to_bytes("3D4553D8E9CFEC6815EBADC40A9FFD04");
+		k4.reverse();
+		let mut k5 = hex_to_bytes("57646468C44A5E28D3E59246F429F1AC");
+		k5.reverse();
+		let mut k6 = hex_to_bytes("BD079435165C6432B532E82834DA581B");
+		k6.reverse();
+		let mut k7 = hex_to_bytes("51E640757E8745DE705727265A0098B1");
+		k7.reverse();
+		let mut k8 = hex_to_bytes("5A7925017B9FDD3ED72A91A22286F984");
+		k8.reverse();
+		let mut k9 = hex_to_bytes("BB44E25378C73123A5F32F73CDB6E517");
+		k9.reverse();
+		let mut k10 = hex_to_bytes("72E9DD7416BCF45B755DBAA88E4A4043");
+		k10.reverse();
+
+		let keys = Kuznehcik {keys: (k, vec![k1.try_into().unwrap(), 
+														k2.try_into().unwrap(),
+														k3.try_into().unwrap(),
+														k4.try_into().unwrap(), 
+														k5.try_into().unwrap(), 
+														k6.try_into().unwrap(), 
+														k7.try_into().unwrap(), 
+														k8.try_into().unwrap(), 
+														k9.try_into().unwrap(), 
+														k10.try_into().unwrap()
+														]
+												)
+										};
 		
 		let mut message = hex_to_bytes("1122334455667700ffeeddccbbaa9988");
     	message.reverse();
 
-		encryption(&message, &keys);
+		let mut encrypted_message = keys.encrypt(&message).unwrap();
+		encrypted_message.reverse();
 
-		let file = File::open(PathBuf::from("./encryption_kuznechik")).expect("Не удалось открыть файл");
-		let mut reader = BufReader::new(file);
-
-		// Чтение строки из файла результата
-		let mut buf = String::new();
-		reader.read_line(& mut buf).unwrap();
-    	let buf = buf.trim();
-
-		let bytes = hex_to_bytes(&buf);
 
 		// Правильный результат
 		let result = hex_to_bytes("7f679d90bebc24305a468d42b9d4edcd");
 
-		assert_eq!(bytes, result);
+		assert_eq!(encrypted_message.to_vec(), result);
+	}
+
+	#[test]
+	fn test_decryption_kuznechik()
+	{
+		// Precomputed keys
+		let mut k = hex_to_bytes("8899AABBCCDDEEFF0011223344556677FEDCBA98765432100123456789ABCDEF");
+		k.reverse();
+		let mut k1 = hex_to_bytes("8899AABBCCDDEEFF0011223344556677");
+		k1.reverse();
+		let mut k2 = hex_to_bytes("FEDCBA98765432100123456789ABCDEF");
+		k2.reverse();
+		let mut k3 = hex_to_bytes("DB31485315694343228D6AEF8CC78C44");
+		k3.reverse();
+		let mut k4 = hex_to_bytes("3D4553D8E9CFEC6815EBADC40A9FFD04");
+		k4.reverse();
+		let mut k5 = hex_to_bytes("57646468C44A5E28D3E59246F429F1AC");
+		k5.reverse();
+		let mut k6 = hex_to_bytes("BD079435165C6432B532E82834DA581B");
+		k6.reverse();
+		let mut k7 = hex_to_bytes("51E640757E8745DE705727265A0098B1");
+		k7.reverse();
+		let mut k8 = hex_to_bytes("5A7925017B9FDD3ED72A91A22286F984");
+		k8.reverse();
+		let mut k9 = hex_to_bytes("BB44E25378C73123A5F32F73CDB6E517");
+		k9.reverse();
+		let mut k10 = hex_to_bytes("72E9DD7416BCF45B755DBAA88E4A4043");
+		k10.reverse();
+
+		let keys = Kuznehcik {keys: (k, vec![k1.try_into().unwrap(), 
+														k2.try_into().unwrap(),
+														k3.try_into().unwrap(),
+														k4.try_into().unwrap(), 
+														k5.try_into().unwrap(), 
+														k6.try_into().unwrap(), 
+														k7.try_into().unwrap(), 
+														k8.try_into().unwrap(), 
+														k9.try_into().unwrap(), 
+														k10.try_into().unwrap()
+														]
+												)
+										};
+
+		let mut message = hex_to_bytes("7f679d90bebc24305a468d42b9d4edcd");
+		message.reverse();
+
+		let mut decrypted_message= keys.decryption(&message).unwrap();
+		decrypted_message.reverse();
+
+		// Правильный результат
+		let result = hex_to_bytes("1122334455667700ffeeddccbbaa9988");
+
+		assert_eq!(decrypted_message.to_vec(), result);
 	}
 }

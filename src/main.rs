@@ -5,15 +5,15 @@ use crate::algorithms::hex_to_bytes;
 pub mod algorithms;
 
 fn main() {
-    let path = PathBuf::from("./kuznehcik_keys");
+    //let path = PathBuf::from("./kuznehcik_keys");
 
-    algorithms::kuznechik::key_generate();
-    let (primary, rounds) = algorithms::kuznechik::get_keys_from_file(&path);
+    // algorithms::kuznechik::key_generate();
+    // let (primary, rounds) = algorithms::kuznechik::get_keys_from_file(&path);
 
-    let mut message = hex_to_bytes("1122334455667700ffeeddccbbaa9988");
-    message.reverse();
+    // let mut message = hex_to_bytes("1122334455667700ffeeddccbbaa9988");
+    // message.reverse();
 
-    algorithms::kuznechik::encryption(&message, &(primary, rounds));
+    // algorithms::kuznechik::encryption(&message, &(primary, rounds));
     
 
     println!();
