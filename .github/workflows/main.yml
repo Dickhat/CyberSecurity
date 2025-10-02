@@ -2,9 +2,9 @@ name: Rust
 
 on:
   push:
-    branches: [ "master", "development" ]
+    branches: [ "master", "development", "release" ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "master", "release" ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -24,7 +24,23 @@ jobs:
       run: cargo build --verbose
     - name: Run tests on ${{ matrix.os }}
       run: cargo test --verbose -- --test-threads=1
-    
+   
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Documentation forming
+      run: cargo doc --no-deps
+    - name: Add redirect
+      run: echo '<meta http-equiv="refresh" content="0;url=CyberSecurity/index.html">' > target/doc/index.html
+
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./target/doc
+
   automerge:
     needs: build
     runs-on: ubuntu-latest
