@@ -1,26 +1,11 @@
 pub mod consts;
 use crate::algorithms::hex_to_bytes;
+use crate::algorithms::{sum_mod2_wo, sum_mod2};
 
 pub fn print_bytes(bytes: &[u8]) {
     for b in bytes[..].iter().rev() {
         print!("{:02x}", b);
     }
-}
-
-// Суммирование в кольце Z_2^N
-fn sum_mod2_wo<const N: usize>(left: &[u8; N], right: &[u8; N]) -> [u8; N]
-{
-    let mut carry: u16 = 0;
-    let mut out: [u8; N] = [0; N];
-
-    for idx in 0..N
-    {
-        let res: u16 = (left[idx] as u16) + (right[idx] as u16) + carry;
-        out[idx] = res as u8;       // Обрезает старшие биты
-        carry = res >> 8;           // Оставляет старшие биты (бит переноса)
-    }
-
-    out
 }
 
 // Получить мощность сообщения в формате [u8; 64]
@@ -30,20 +15,6 @@ fn power_to_u64(rem: u128) -> [u8; 64]
     let rem_b = rem.to_le_bytes();
     m_power[..rem_b.len()].copy_from_slice(&rem_b);
     m_power
-}
-
-// Суммирование по модулю 2
-fn sum_mod2<const N: usize>(str1: &[u8; N], str2: &[u8; N]) -> [u8; N]
-{
-    let mut res: [u8; N] = [0; N];
-
-    // Суммирование по модулю 2
-    for index in 0..N
-    {
-        res[index] = str1[index] ^ str2[index];
-    }
-
-    res
 }
 
 // Умножение с матрицей A
@@ -71,6 +42,7 @@ fn mul_matrice(b: [u8; 8]) -> [u8; 8]
     out
 }
 
+// Последовательность операций, выполняемых в порядке: s, p, l
 fn lps(v: [u8; 64]) -> [u8; 64]
 {
     let mut res: [u8; 64] = [0; 64];
@@ -137,6 +109,7 @@ fn gn(h: & [u8; 64], m: & [u8; 64], n: & [u8; 64]) -> [u8; 64]
     x
 }
 
+// Хэширование Стрибог
 pub fn streebog(message: &[u8], bit_length: u16) -> Result<Vec<u8>, String>
 {
     if bit_length != 256 && bit_length != 512

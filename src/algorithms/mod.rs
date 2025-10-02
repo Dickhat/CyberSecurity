@@ -1,6 +1,7 @@
 pub mod rsa;
 pub mod streebog;
 pub mod kuznechik;
+pub mod block_cipher_modes;
 
 // Перевод шестнацетиричных чисел в байты (Исходное представление big Endian)
 pub fn hex_to_bytes(hex: &str) -> Vec<u8> {
@@ -21,4 +22,34 @@ pub fn to_hex(data: &[u8]) -> String {
     }
 
     out
+}
+
+// Суммирование в кольце Z_2^N
+pub fn sum_mod2_wo<const N: usize>(left: &[u8; N], right: &[u8; N]) -> [u8; N]
+{
+    let mut carry: u16 = 0;
+    let mut out: [u8; N] = [0; N];
+
+    for idx in 0..N
+    {
+        let res: u16 = (left[idx] as u16) + (right[idx] as u16) + carry;
+        out[idx] = res as u8;       // Обрезает старшие биты
+        carry = res >> 8;           // Оставляет старшие биты (бит переноса)
+    }
+
+    out
+}
+
+// Суммирование по модулю 2
+pub fn sum_mod2<const N: usize>(str1: &[u8; N], str2: &[u8; N]) -> [u8; N]
+{
+    let mut res: [u8; N] = [0; N];
+
+    // Суммирование по модулю 2
+    for index in 0..N
+    {
+        res[index] = str1[index] ^ str2[index];
+    }
+
+    res
 }
