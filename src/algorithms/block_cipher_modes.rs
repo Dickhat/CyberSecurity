@@ -8,6 +8,8 @@ pub struct CipherModes
 }
 
 impl CipherModes {
+    /// Создание структуры CipherModes с хранилищем ключей внутри,
+    /// также обеспечивает вызов методов шифрования/расшифрования блочных шифров
     pub fn new() -> Self
     {
         Self { keys: Kuznechik::new()}
@@ -24,7 +26,8 @@ impl CipherModes {
         padded_message
     }
 
-    /// Режим простой замены (Electronic Codebook)
+    /// Режим простой замены (Electronic Codebook). При длине сообщения < 128
+    /// до шифрования осуществляет padding по схеме ГОСТ Р 34.13-2018 paragraph 4.1.3
     pub fn ecb_encrypt(&self, message: &[u8]) -> Vec<[u8; 16]>
     {
         let mut encrypted_message: Vec<[u8; 16]> = vec![];
@@ -56,7 +59,8 @@ impl CipherModes {
         encrypted_message
     }
 
-    /// Режим простой замены (Electronic Codebook)
+    /// Режим простой замены (Electronic Codebook). Расшифровывает шифротекст
+    /// а также убирает padding по схеме ГОСТ Р 34.13-2018 paragraph 4.1.3
     pub fn ecb_decrypt(&self, message: &[u8]) -> Vec<u8>
     {
         let mut encrypted_message: Vec<u8> = vec![];
@@ -101,7 +105,9 @@ impl CipherModes {
         res
     }
 
-    /// Режим гаммирования (Counter)
+    /// Режим гаммирования (Counter) с входным сообщением message, представленным срезом байтов
+    /// Параметром s, представляющем число бит шифрования, и IV - инициализирующим вектором,
+    /// который для каждого нового сообщения формируется новый
     pub fn ctr_encrypt(&self, message: &[u8], s: usize, iv: &[u8; 8]) -> Vec<u8>
     {
         // s - число бит, которые будут шифроваться

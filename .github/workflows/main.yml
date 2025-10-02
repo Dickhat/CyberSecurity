@@ -24,6 +24,13 @@ jobs:
       run: cargo build --verbose
     - name: Run tests on ${{ matrix.os }}
       run: cargo test --verbose -- --test-threads=1
+   
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Documentation forming
+      run: cargo doc --no-deps
     
   automerge:
     needs: build
