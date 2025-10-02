@@ -4,12 +4,12 @@ use crate::algorithms::{hex_to_bytes, kuznechik::consts::{KUZ_PI, KUZ_PI_INV, L_
 
 pub mod consts;
 
-pub struct Kuznehcik
+pub struct Kuznechik
 {
-	keys: (Vec<u8>, Vec<[u8; 16]>)
+	pub keys: (Vec<u8>, Vec<[u8; 16]>)
 }
 
-impl Kuznehcik
+impl Kuznechik
 {
 	/// Конечное поле GF(2){x}/p(x), где р(х) = х^8 + х^7 + х^6 + х + 1 принадлежит GF(2){x}; 
 	/// элементы поля F представляются целыми числами, причем элементу z0 + z1•t + ... + z7•t, принадлежащему F, соответствует число z0+ 2•z1 + ...+2•z7,
@@ -245,11 +245,53 @@ impl Kuznehcik
 
 		let pair_keys = (k, k_vec);
 
-		let path: PathBuf = PathBuf::from("./kuznehcik_keys");
+		let path: PathBuf = PathBuf::from("./Kuznechik_keys");
 		Self::save_keys_into_file(&pair_keys, &path);
 
 		pair_keys
 	}
+
+	// Создание остальных ключей на основе переданного
+	pub fn key_generate_with_precopmuted_key(key: &[u8]) -> (Vec<u8>, Vec<[u8; 16]>)
+	{
+		let c_vec = Self::iterational_constants();
+		
+		// Ключ, на основе которого будут считать остальные ключи
+		let mut k: [u8; 32] = [0; 32];
+
+		if key.len() != 32
+		{
+			panic!("Error key len. Length must be 32, but pass {}", key.len());
+		}
+
+		k.copy_from_slice(key);
+
+		let mut k_vec: Vec<[u8; 16]> = Vec::with_capacity(10);	// Все итерационные ключи
+		
+		let mut k1: [u8; 16] = [0; 16];
+		k1.copy_from_slice(&k[16..]);
+		k_vec.push(k1);
+
+		let mut k2: [u8; 16] = [0; 16];
+		k2.copy_from_slice(&k[..16]);
+		k_vec.push(k2);
+
+		for i in 1..5 as usize
+		{
+			// F [С_8(i-1)+8]...F[С_8(i-1)+1](K_2i-1, K_2i)
+			for iter in 0..8 as usize
+			{
+				(k1, k2) = Self::fk(&c_vec[8 * (i - 1) + iter], &k1, &k2);
+			}
+
+			// Пушит копию (до 32 байт)
+			k_vec.push(k1);
+			k_vec.push(k2);
+		}
+
+		(k.to_vec(), k_vec)
+	}
+
 
 	pub fn save_keys_into_file(keys: &(Vec<u8>, Vec<[u8; 16]>), path: &PathBuf) -> PathBuf
 	{
@@ -301,7 +343,7 @@ impl Kuznehcik
 	/// Шифрование Message блоками длины 128 бит
 	pub fn encrypt(&self, message: &[u8]) -> Result<[u8; 16], String>
 	{
-		// let mut file = File::create(PathBuf::from("./encryption_kuznechik")).unwrap();
+		// let mut file = File::create(PathBuf::from("./encryption_Kuznechik")).unwrap();
 
 		if message.len()*8 != 128
 		{
@@ -325,7 +367,7 @@ impl Kuznehcik
 	}
 
 	/// Расшифрование M по блокам длины 128
-	pub fn decryption(&self, message: &[u8]) -> Result<[u8; 16], String>
+	pub fn decrypt(&self, message: &[u8]) -> Result<[u8; 16], String>
 	{
 		if message.len()*8 != 128
 		{
@@ -351,14 +393,12 @@ impl Kuznehcik
 	{
 		Self { keys: Self::key_generate() }
 	}
-
-
 }
 
 #[cfg(test)]
 mod tests
 {
-// Note this useful idiom: importing names from outer (for mod tests) scope.
+	// Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
     use crate::algorithms::hex_to_bytes;
 	use crate::algorithms::streebog::print_bytes;
@@ -382,16 +422,16 @@ mod tests
 		r4.reverse();
 		
 		// Проверки
-		let mut res = Kuznehcik::r(&arr);
+		let mut res = Kuznechik::r(&arr);
 		assert_eq!(res.to_vec(), r1);
 
-		res = Kuznehcik::r(&res);
+		res = Kuznechik::r(&res);
 		assert_eq!(res.to_vec(), r2);
 
-		res = Kuznehcik::r(&res);
+		res = Kuznechik::r(&res);
 		assert_eq!(res.to_vec(), r3);
 
-		res = Kuznehcik::r(&res);	
+		res = Kuznechik::r(&res);	
 		assert_eq!(res.to_vec(), r4);
 	}
 
@@ -414,23 +454,23 @@ mod tests
 		l4.reverse();
 		
 		// Проверки
-		let mut res = Kuznehcik::l(&arr);
+		let mut res = Kuznechik::l(&arr);
 		assert_eq!(res.to_vec(), l1);
 
-		res = Kuznehcik::l(&res);
+		res = Kuznechik::l(&res);
 		assert_eq!(res.to_vec(), l2);
 
-		res = Kuznehcik::l(&res);
+		res = Kuznechik::l(&res);
 		assert_eq!(res.to_vec(), l3);
 		
-		res = Kuznehcik::l(&res);	
+		res = Kuznechik::l(&res);	
 		assert_eq!(res.to_vec(), l4);
 	}
 
 	#[test]
 	fn test_c_constants()
 	{
-		let c_vec = Kuznehcik::iterational_constants();
+		let c_vec = Kuznechik::iterational_constants();
 		let mut c_correct_vec = Vec::with_capacity(8);
 
 		// Правильные ответы
@@ -477,7 +517,7 @@ mod tests
 	fn test_fc()
 	{
 		// Начальные данные
-		let c_vec = Kuznehcik::iterational_constants();
+		let c_vec = Kuznechik::iterational_constants();
 
 		let mut k = hex_to_bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef");
 		k.reverse();
@@ -546,7 +586,7 @@ mod tests
 		// F [С_8(i-1)+8]...F[С_8(i-1)+1](K_2i-1, K_2i)
 		for iter in 0..8 as usize
 		{
-			(k1, k2) = Kuznehcik::fk(&c_vec[8 * (i - 1) + iter], &k1, &k2);
+			(k1, k2) = Kuznechik::fk(&c_vec[8 * (i - 1) + iter], &k1, &k2);
 			assert_eq!((k1.to_vec(), k2.to_vec()), correct_results[iter]);
 		}
 	}
@@ -555,7 +595,7 @@ mod tests
 	fn test_iterational_keys()
 	{
 		// Начальные данные
-		let c_vec = Kuznehcik::iterational_constants();
+		let c_vec = Kuznechik::iterational_constants();
 		let mut k_vec = Vec::with_capacity(10);
 
 		let mut k = hex_to_bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef");
@@ -575,7 +615,7 @@ mod tests
 			// F [С_8(i-1)+8]...F[С_8(i-1)+1](K_2i-1, K_2i)
 			for iter in 0..8 as usize
 			{
-				(k1, k2) = Kuznehcik::fk(&c_vec[8 * (i - 1) + iter], &k1, &k2);
+				(k1, k2) = Kuznechik::fk(&c_vec[8 * (i - 1) + iter], &k1, &k2);
 			}
 
 			k_vec.push(k1);
@@ -658,7 +698,7 @@ mod tests
 		let mut k10 = hex_to_bytes("72E9DD7416BCF45B755DBAA88E4A4043");
 		k10.reverse();
 
-		let keys = Kuznehcik {keys: (k, vec![k1.try_into().unwrap(), 
+		let keys = Kuznechik {keys: (k, vec![k1.try_into().unwrap(), 
 														k2.try_into().unwrap(),
 														k3.try_into().unwrap(),
 														k4.try_into().unwrap(), 
@@ -712,7 +752,7 @@ mod tests
 		let mut k10 = hex_to_bytes("72E9DD7416BCF45B755DBAA88E4A4043");
 		k10.reverse();
 
-		let keys = Kuznehcik {keys: (k, vec![k1.try_into().unwrap(), 
+		let keys = Kuznechik {keys: (k, vec![k1.try_into().unwrap(), 
 														k2.try_into().unwrap(),
 														k3.try_into().unwrap(),
 														k4.try_into().unwrap(), 
@@ -729,7 +769,7 @@ mod tests
 		let mut message = hex_to_bytes("7f679d90bebc24305a468d42b9d4edcd");
 		message.reverse();
 
-		let mut decrypted_message= keys.decryption(&message).unwrap();
+		let mut decrypted_message= keys.decrypt(&message).unwrap();
 		decrypted_message.reverse();
 
 		// Правильный результат
