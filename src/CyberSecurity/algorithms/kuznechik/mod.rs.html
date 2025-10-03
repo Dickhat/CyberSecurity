@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/algorithms/kuznechik/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-84e720fa.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="CyberSecurity" data-themes="" data-resource-suffix="" data-rustdoc-version="1.89.0 (29483883e 2025-08-04)" data-channel="1.89.0" data-search-js="search-92309212.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="../../../../static.files/src-script-813739b1.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-fd3af306.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">CyberSecurity/algorithms/kuznechik/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>std::{fs::File, io::{BufRead, BufReader, Write}, path::{Path, PathBuf}, vec};
 <a href=#2 id=2 data-nosnippet>2</a>
-<a href=#3 id=3 data-nosnippet>3</a><span class="kw">use </span><span class="kw">crate</span>::algorithms::{hex_to_bytes, kuznechik::consts::{KUZ_PI, KUZ_PI_INV, L_VEC}, to_hex};
+<a href=#3 id=3 data-nosnippet>3</a><span class="kw">use </span><span class="kw">crate</span>::algorithms::{hex_to_bytes, kuznechik::consts::{KUZ_PI, KUZ_PI_INV, L_VEC}, to_hex, print_bytes};
 <a href=#4 id=4 data-nosnippet>4</a>
 <a href=#5 id=5 data-nosnippet>5</a><span class="kw">pub mod </span>consts;
 <a href=#6 id=6 data-nosnippet>6</a>
@@ -401,380 +401,379 @@
 <a href=#401 id=401 data-nosnippet>401</a>	<span class="comment">// Note this useful idiom: importing names from outer (for mod tests) scope.
 <a href=#402 id=402 data-nosnippet>402</a>    </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <a href=#403 id=403 data-nosnippet>403</a>    <span class="kw">use </span><span class="kw">crate</span>::algorithms::hex_to_bytes;
-<a href=#404 id=404 data-nosnippet>404</a>	<span class="kw">use </span><span class="kw">crate</span>::algorithms::streebog::print_bytes;
-<a href=#405 id=405 data-nosnippet>405</a>
-<a href=#406 id=406 data-nosnippet>406</a>	<span class="attr">#[test]
-<a href=#407 id=407 data-nosnippet>407</a>	</span><span class="kw">fn </span>test_r_transform()
-<a href=#408 id=408 data-nosnippet>408</a>	{
-<a href=#409 id=409 data-nosnippet>409</a>		<span class="comment">// Исходная строка
-<a href=#410 id=410 data-nosnippet>410</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>a = hex_to_bytes(<span class="string">"00000000000000000000000000000100"</span>);
-<a href=#411 id=411 data-nosnippet>411</a>		a.reverse();	<span class="comment">// litte-endian
-<a href=#412 id=412 data-nosnippet>412</a>		</span><span class="kw">let </span>arr: [u8; <span class="number">16</span>] = a.clone().try_into().expect(<span class="string">"должно быть 16 байт"</span>);
-<a href=#413 id=413 data-nosnippet>413</a>
-<a href=#414 id=414 data-nosnippet>414</a>		<span class="comment">// Правильные ответы
-<a href=#415 id=415 data-nosnippet>415</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>r1 = hex_to_bytes(<span class="string">"94000000000000000000000000000001"</span>);
-<a href=#416 id=416 data-nosnippet>416</a>		r1.reverse();
-<a href=#417 id=417 data-nosnippet>417</a>		<span class="kw">let </span><span class="kw-2">mut </span>r2 = hex_to_bytes(<span class="string">"a5940000000000000000000000000000"</span>);
-<a href=#418 id=418 data-nosnippet>418</a>		r2.reverse();
-<a href=#419 id=419 data-nosnippet>419</a>		<span class="kw">let </span><span class="kw-2">mut </span>r3 = hex_to_bytes(<span class="string">"64a59400000000000000000000000000"</span>);
-<a href=#420 id=420 data-nosnippet>420</a>		r3.reverse();
-<a href=#421 id=421 data-nosnippet>421</a>		<span class="kw">let </span><span class="kw-2">mut </span>r4 = hex_to_bytes(<span class="string">"0d64a594000000000000000000000000"</span>);
-<a href=#422 id=422 data-nosnippet>422</a>		r4.reverse();
-<a href=#423 id=423 data-nosnippet>423</a>		
-<a href=#424 id=424 data-nosnippet>424</a>		<span class="comment">// Проверки
-<a href=#425 id=425 data-nosnippet>425</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>res = Kuznechik::r(<span class="kw-2">&amp;</span>arr);
-<a href=#426 id=426 data-nosnippet>426</a>		<span class="macro">assert_eq!</span>(res.to_vec(), r1);
-<a href=#427 id=427 data-nosnippet>427</a>
-<a href=#428 id=428 data-nosnippet>428</a>		res = Kuznechik::r(<span class="kw-2">&amp;</span>res);
-<a href=#429 id=429 data-nosnippet>429</a>		<span class="macro">assert_eq!</span>(res.to_vec(), r2);
-<a href=#430 id=430 data-nosnippet>430</a>
-<a href=#431 id=431 data-nosnippet>431</a>		res = Kuznechik::r(<span class="kw-2">&amp;</span>res);
-<a href=#432 id=432 data-nosnippet>432</a>		<span class="macro">assert_eq!</span>(res.to_vec(), r3);
-<a href=#433 id=433 data-nosnippet>433</a>
-<a href=#434 id=434 data-nosnippet>434</a>		res = Kuznechik::r(<span class="kw-2">&amp;</span>res);	
-<a href=#435 id=435 data-nosnippet>435</a>		<span class="macro">assert_eq!</span>(res.to_vec(), r4);
-<a href=#436 id=436 data-nosnippet>436</a>	}
-<a href=#437 id=437 data-nosnippet>437</a>
-<a href=#438 id=438 data-nosnippet>438</a>	<span class="attr">#[test]
-<a href=#439 id=439 data-nosnippet>439</a>	</span><span class="kw">fn </span>test_l_transform()
-<a href=#440 id=440 data-nosnippet>440</a>	{
-<a href=#441 id=441 data-nosnippet>441</a>		<span class="comment">// Исходная строка
-<a href=#442 id=442 data-nosnippet>442</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>a = hex_to_bytes(<span class="string">"64a59400000000000000000000000000"</span>);
-<a href=#443 id=443 data-nosnippet>443</a>		a.reverse();	<span class="comment">// litte-endian
-<a href=#444 id=444 data-nosnippet>444</a>		</span><span class="kw">let </span>arr: [u8; <span class="number">16</span>] = a.clone().try_into().expect(<span class="string">"должно быть 16 байт"</span>);
-<a href=#445 id=445 data-nosnippet>445</a>
-<a href=#446 id=446 data-nosnippet>446</a>		<span class="comment">// Правильные ответы
-<a href=#447 id=447 data-nosnippet>447</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>l1 = hex_to_bytes(<span class="string">"d456584dd0e3e84cc3166e4b7fa2890d"</span>);
-<a href=#448 id=448 data-nosnippet>448</a>		l1.reverse();
-<a href=#449 id=449 data-nosnippet>449</a>		<span class="kw">let </span><span class="kw-2">mut </span>l2 = hex_to_bytes(<span class="string">"79d26221b87b584cd42fbc4ffea5de9a"</span>);
-<a href=#450 id=450 data-nosnippet>450</a>		l2.reverse();
-<a href=#451 id=451 data-nosnippet>451</a>		<span class="kw">let </span><span class="kw-2">mut </span>l3 = hex_to_bytes(<span class="string">"0e93691a0cfc60408b7b68f66b513c13"</span>);
-<a href=#452 id=452 data-nosnippet>452</a>		l3.reverse();
-<a href=#453 id=453 data-nosnippet>453</a>		<span class="kw">let </span><span class="kw-2">mut </span>l4 = hex_to_bytes(<span class="string">"e6a8094fee0aa204fd97bcb0b44b8580"</span>);
-<a href=#454 id=454 data-nosnippet>454</a>		l4.reverse();
-<a href=#455 id=455 data-nosnippet>455</a>		
-<a href=#456 id=456 data-nosnippet>456</a>		<span class="comment">// Проверки
-<a href=#457 id=457 data-nosnippet>457</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>res = Kuznechik::l(<span class="kw-2">&amp;</span>arr);
-<a href=#458 id=458 data-nosnippet>458</a>		<span class="macro">assert_eq!</span>(res.to_vec(), l1);
-<a href=#459 id=459 data-nosnippet>459</a>
-<a href=#460 id=460 data-nosnippet>460</a>		res = Kuznechik::l(<span class="kw-2">&amp;</span>res);
-<a href=#461 id=461 data-nosnippet>461</a>		<span class="macro">assert_eq!</span>(res.to_vec(), l2);
-<a href=#462 id=462 data-nosnippet>462</a>
-<a href=#463 id=463 data-nosnippet>463</a>		res = Kuznechik::l(<span class="kw-2">&amp;</span>res);
-<a href=#464 id=464 data-nosnippet>464</a>		<span class="macro">assert_eq!</span>(res.to_vec(), l3);
-<a href=#465 id=465 data-nosnippet>465</a>		
-<a href=#466 id=466 data-nosnippet>466</a>		res = Kuznechik::l(<span class="kw-2">&amp;</span>res);	
-<a href=#467 id=467 data-nosnippet>467</a>		<span class="macro">assert_eq!</span>(res.to_vec(), l4);
-<a href=#468 id=468 data-nosnippet>468</a>	}
-<a href=#469 id=469 data-nosnippet>469</a>
-<a href=#470 id=470 data-nosnippet>470</a>	<span class="attr">#[test]
-<a href=#471 id=471 data-nosnippet>471</a>	</span><span class="kw">fn </span>test_c_constants()
-<a href=#472 id=472 data-nosnippet>472</a>	{
-<a href=#473 id=473 data-nosnippet>473</a>		<span class="kw">let </span>c_vec = Kuznechik::iterational_constants();
-<a href=#474 id=474 data-nosnippet>474</a>		<span class="kw">let </span><span class="kw-2">mut </span>c_correct_vec = Vec::with_capacity(<span class="number">8</span>);
-<a href=#475 id=475 data-nosnippet>475</a>
-<a href=#476 id=476 data-nosnippet>476</a>		<span class="comment">// Правильные ответы
-<a href=#477 id=477 data-nosnippet>477</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>c1 = hex_to_bytes(<span class="string">"6ea276726c487ab85d27bd10dd849401"</span>);
-<a href=#478 id=478 data-nosnippet>478</a>		c1.reverse();
-<a href=#479 id=479 data-nosnippet>479</a>		c_correct_vec.push(c1);
-<a href=#480 id=480 data-nosnippet>480</a>
-<a href=#481 id=481 data-nosnippet>481</a>		<span class="kw">let </span><span class="kw-2">mut </span>c2 = hex_to_bytes(<span class="string">"dc87ece4d890f4b3ba4eb92079cbeb02"</span>);
-<a href=#482 id=482 data-nosnippet>482</a>		c2.reverse();
-<a href=#483 id=483 data-nosnippet>483</a>		c_correct_vec.push(c2);
-<a href=#484 id=484 data-nosnippet>484</a>
-<a href=#485 id=485 data-nosnippet>485</a>		<span class="kw">let </span><span class="kw-2">mut </span>c3 = hex_to_bytes(<span class="string">"b2259a96b4d88e0be7690430a44f7f03"</span>);
-<a href=#486 id=486 data-nosnippet>486</a>		c3.reverse();
-<a href=#487 id=487 data-nosnippet>487</a>		c_correct_vec.push(c3);
-<a href=#488 id=488 data-nosnippet>488</a>
-<a href=#489 id=489 data-nosnippet>489</a>		<span class="kw">let </span><span class="kw-2">mut </span>c4 = hex_to_bytes(<span class="string">"7bcd1b0b73e32ba5b79cb140f2551504"</span>);
-<a href=#490 id=490 data-nosnippet>490</a>		c4.reverse();
-<a href=#491 id=491 data-nosnippet>491</a>		c_correct_vec.push(c4);
-<a href=#492 id=492 data-nosnippet>492</a>
-<a href=#493 id=493 data-nosnippet>493</a>		<span class="kw">let </span><span class="kw-2">mut </span>c5 = hex_to_bytes(<span class="string">"156f6d791fab511deabb0c502fd18105"</span>);
-<a href=#494 id=494 data-nosnippet>494</a>		c5.reverse();
-<a href=#495 id=495 data-nosnippet>495</a>		c_correct_vec.push(c5);
-<a href=#496 id=496 data-nosnippet>496</a>
-<a href=#497 id=497 data-nosnippet>497</a>		<span class="kw">let </span><span class="kw-2">mut </span>c6 = hex_to_bytes(<span class="string">"a74af7efab73df160dd208608b9efe06"</span>);
-<a href=#498 id=498 data-nosnippet>498</a>		c6.reverse();
-<a href=#499 id=499 data-nosnippet>499</a>		c_correct_vec.push(c6);
-<a href=#500 id=500 data-nosnippet>500</a>
-<a href=#501 id=501 data-nosnippet>501</a>		<span class="kw">let </span><span class="kw-2">mut </span>c7 = hex_to_bytes(<span class="string">"c9e8819dc73ba5ae50f5b570561a6a07"</span>);
-<a href=#502 id=502 data-nosnippet>502</a>		c7.reverse();
-<a href=#503 id=503 data-nosnippet>503</a>		c_correct_vec.push(c7);
-<a href=#504 id=504 data-nosnippet>504</a>
-<a href=#505 id=505 data-nosnippet>505</a>		<span class="kw">let </span><span class="kw-2">mut </span>c8 = hex_to_bytes(<span class="string">"f6593616e6055689adfba18027aa2a08"</span>);
-<a href=#506 id=506 data-nosnippet>506</a>		c8.reverse();
-<a href=#507 id=507 data-nosnippet>507</a>		c_correct_vec.push(c8);
-<a href=#508 id=508 data-nosnippet>508</a>
-<a href=#509 id=509 data-nosnippet>509</a>		<span class="comment">// Проверка всех значений
-<a href=#510 id=510 data-nosnippet>510</a>		</span><span class="kw">for </span>elem <span class="kw">in </span><span class="number">0</span>..<span class="number">8
-<a href=#511 id=511 data-nosnippet>511</a>		</span>{
-<a href=#512 id=512 data-nosnippet>512</a>			<span class="macro">assert_eq!</span>(c_vec[elem].to_vec(), c_correct_vec[elem]);
-<a href=#513 id=513 data-nosnippet>513</a>		}
-<a href=#514 id=514 data-nosnippet>514</a>	}
-<a href=#515 id=515 data-nosnippet>515</a>
-<a href=#516 id=516 data-nosnippet>516</a>	<span class="attr">#[test]
-<a href=#517 id=517 data-nosnippet>517</a>	</span><span class="kw">fn </span>test_fc()
-<a href=#518 id=518 data-nosnippet>518</a>	{
-<a href=#519 id=519 data-nosnippet>519</a>		<span class="comment">// Начальные данные
-<a href=#520 id=520 data-nosnippet>520</a>		</span><span class="kw">let </span>c_vec = Kuznechik::iterational_constants();
-<a href=#521 id=521 data-nosnippet>521</a>
-<a href=#522 id=522 data-nosnippet>522</a>		<span class="kw">let </span><span class="kw-2">mut </span>k = hex_to_bytes(<span class="string">"8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef"</span>);
-<a href=#523 id=523 data-nosnippet>523</a>		k.reverse();
-<a href=#524 id=524 data-nosnippet>524</a>
-<a href=#525 id=525 data-nosnippet>525</a>		<span class="kw">let </span><span class="kw-2">mut </span>k1: [u8; <span class="number">16</span>] = [<span class="number">0</span>; <span class="number">16</span>];
-<a href=#526 id=526 data-nosnippet>526</a>		k1.copy_from_slice(<span class="kw-2">&amp;</span>k[<span class="number">16</span>..]);
-<a href=#527 id=527 data-nosnippet>527</a>
-<a href=#528 id=528 data-nosnippet>528</a>		<span class="kw">let </span><span class="kw-2">mut </span>k2: [u8; <span class="number">16</span>] = [<span class="number">0</span>; <span class="number">16</span>];
-<a href=#529 id=529 data-nosnippet>529</a>		k2.copy_from_slice(<span class="kw-2">&amp;</span>k[..<span class="number">16</span>]);
-<a href=#530 id=530 data-nosnippet>530</a>
-<a href=#531 id=531 data-nosnippet>531</a>		<span class="comment">// Правильные ответы
-<a href=#532 id=532 data-nosnippet>532</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>correct_results: Vec&lt;(Vec&lt;u8&gt;, Vec&lt;u8&gt;)&gt; = Vec::with_capacity(<span class="number">8</span>);
-<a href=#533 id=533 data-nosnippet>533</a>
-<a href=#534 id=534 data-nosnippet>534</a>		<span class="kw">let </span><span class="kw-2">mut </span>res_left = hex_to_bytes(<span class="string">"c3d5fa01ebe36f7a9374427ad7ca8949"</span>);
-<a href=#535 id=535 data-nosnippet>535</a>		<span class="kw">let </span><span class="kw-2">mut </span>res_right = hex_to_bytes(<span class="string">"8899aabbccddeeff0011223344556677"</span>);
-<a href=#536 id=536 data-nosnippet>536</a>		res_left.reverse();
-<a href=#537 id=537 data-nosnippet>537</a>		res_right.reverse();
-<a href=#538 id=538 data-nosnippet>538</a>		correct_results.push((res_left, res_right));
-<a href=#539 id=539 data-nosnippet>539</a>
-<a href=#540 id=540 data-nosnippet>540</a>		res_left = hex_to_bytes(<span class="string">"37777748e56453377d5e262d90903f87"</span>);
-<a href=#541 id=541 data-nosnippet>541</a>		res_right = hex_to_bytes(<span class="string">"c3d5fa01ebe36f7a9374427ad7ca8949"</span>);
-<a href=#542 id=542 data-nosnippet>542</a>		res_left.reverse();
-<a href=#543 id=543 data-nosnippet>543</a>		res_right.reverse();
-<a href=#544 id=544 data-nosnippet>544</a>		correct_results.push((res_left, res_right));
-<a href=#545 id=545 data-nosnippet>545</a>
-<a href=#546 id=546 data-nosnippet>546</a>		res_left = hex_to_bytes(<span class="string">"f9eae5f29b2815e31f11ac5d9c29fb01"</span>);
-<a href=#547 id=547 data-nosnippet>547</a>		res_right = hex_to_bytes(<span class="string">"37777748e56453377d5e262d90903f87"</span>);
-<a href=#548 id=548 data-nosnippet>548</a>		res_left.reverse();
-<a href=#549 id=549 data-nosnippet>549</a>		res_right.reverse();
-<a href=#550 id=550 data-nosnippet>550</a>		correct_results.push((res_left, res_right));
-<a href=#551 id=551 data-nosnippet>551</a>
-<a href=#552 id=552 data-nosnippet>552</a>		res_left = hex_to_bytes(<span class="string">"e980089683d00d4be37dd3434699b98f"</span>);
-<a href=#553 id=553 data-nosnippet>553</a>		res_right = hex_to_bytes(<span class="string">"f9eae5f29b2815e31f11ac5d9c29fb01"</span>);
-<a href=#554 id=554 data-nosnippet>554</a>		res_left.reverse();
-<a href=#555 id=555 data-nosnippet>555</a>		res_right.reverse();
-<a href=#556 id=556 data-nosnippet>556</a>		correct_results.push((res_left, res_right));
-<a href=#557 id=557 data-nosnippet>557</a>
-<a href=#558 id=558 data-nosnippet>558</a>		res_left = hex_to_bytes(<span class="string">"b7bd70acea4460714f4ebe13835cf004"</span>);
-<a href=#559 id=559 data-nosnippet>559</a>		res_right = hex_to_bytes(<span class="string">"e980089683d00d4be37dd3434699b98f"</span>);
-<a href=#560 id=560 data-nosnippet>560</a>		res_left.reverse();
-<a href=#561 id=561 data-nosnippet>561</a>		res_right.reverse();
-<a href=#562 id=562 data-nosnippet>562</a>		correct_results.push((res_left, res_right));
-<a href=#563 id=563 data-nosnippet>563</a>
-<a href=#564 id=564 data-nosnippet>564</a>		res_left = hex_to_bytes(<span class="string">"1a46ea1cf6ccd236467287df93fdf974"</span>);
-<a href=#565 id=565 data-nosnippet>565</a>		res_right = hex_to_bytes(<span class="string">"b7bd70acea4460714f4ebe13835cf004"</span>);
-<a href=#566 id=566 data-nosnippet>566</a>		res_left.reverse();
-<a href=#567 id=567 data-nosnippet>567</a>		res_right.reverse();
-<a href=#568 id=568 data-nosnippet>568</a>		correct_results.push((res_left, res_right));
-<a href=#569 id=569 data-nosnippet>569</a>
-<a href=#570 id=570 data-nosnippet>570</a>		res_left = hex_to_bytes(<span class="string">"3d4553d8e9cfec6815ebadc40a9ffd04"</span>);
-<a href=#571 id=571 data-nosnippet>571</a>		res_right = hex_to_bytes(<span class="string">"1a46ea1cf6ccd236467287df93fdf974"</span>);
-<a href=#572 id=572 data-nosnippet>572</a>		res_left.reverse();
-<a href=#573 id=573 data-nosnippet>573</a>		res_right.reverse();
-<a href=#574 id=574 data-nosnippet>574</a>		correct_results.push((res_left, res_right));
-<a href=#575 id=575 data-nosnippet>575</a>
-<a href=#576 id=576 data-nosnippet>576</a>		res_left = hex_to_bytes(<span class="string">"db31485315694343228d6aef8cc78c44"</span>);
-<a href=#577 id=577 data-nosnippet>577</a>		res_right = hex_to_bytes(<span class="string">"3d4553d8e9cfec6815ebadc40a9ffd04"</span>);
-<a href=#578 id=578 data-nosnippet>578</a>		res_left.reverse();
-<a href=#579 id=579 data-nosnippet>579</a>		res_right.reverse();
-<a href=#580 id=580 data-nosnippet>580</a>		correct_results.push((res_left, res_right));
+<a href=#404 id=404 data-nosnippet>404</a>
+<a href=#405 id=405 data-nosnippet>405</a>	<span class="attr">#[test]
+<a href=#406 id=406 data-nosnippet>406</a>	</span><span class="kw">fn </span>test_r_transform()
+<a href=#407 id=407 data-nosnippet>407</a>	{
+<a href=#408 id=408 data-nosnippet>408</a>		<span class="comment">// Исходная строка
+<a href=#409 id=409 data-nosnippet>409</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>a = hex_to_bytes(<span class="string">"00000000000000000000000000000100"</span>);
+<a href=#410 id=410 data-nosnippet>410</a>		a.reverse();	<span class="comment">// litte-endian
+<a href=#411 id=411 data-nosnippet>411</a>		</span><span class="kw">let </span>arr: [u8; <span class="number">16</span>] = a.clone().try_into().expect(<span class="string">"должно быть 16 байт"</span>);
+<a href=#412 id=412 data-nosnippet>412</a>
+<a href=#413 id=413 data-nosnippet>413</a>		<span class="comment">// Правильные ответы
+<a href=#414 id=414 data-nosnippet>414</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>r1 = hex_to_bytes(<span class="string">"94000000000000000000000000000001"</span>);
+<a href=#415 id=415 data-nosnippet>415</a>		r1.reverse();
+<a href=#416 id=416 data-nosnippet>416</a>		<span class="kw">let </span><span class="kw-2">mut </span>r2 = hex_to_bytes(<span class="string">"a5940000000000000000000000000000"</span>);
+<a href=#417 id=417 data-nosnippet>417</a>		r2.reverse();
+<a href=#418 id=418 data-nosnippet>418</a>		<span class="kw">let </span><span class="kw-2">mut </span>r3 = hex_to_bytes(<span class="string">"64a59400000000000000000000000000"</span>);
+<a href=#419 id=419 data-nosnippet>419</a>		r3.reverse();
+<a href=#420 id=420 data-nosnippet>420</a>		<span class="kw">let </span><span class="kw-2">mut </span>r4 = hex_to_bytes(<span class="string">"0d64a594000000000000000000000000"</span>);
+<a href=#421 id=421 data-nosnippet>421</a>		r4.reverse();
+<a href=#422 id=422 data-nosnippet>422</a>		
+<a href=#423 id=423 data-nosnippet>423</a>		<span class="comment">// Проверки
+<a href=#424 id=424 data-nosnippet>424</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>res = Kuznechik::r(<span class="kw-2">&amp;</span>arr);
+<a href=#425 id=425 data-nosnippet>425</a>		<span class="macro">assert_eq!</span>(res.to_vec(), r1);
+<a href=#426 id=426 data-nosnippet>426</a>
+<a href=#427 id=427 data-nosnippet>427</a>		res = Kuznechik::r(<span class="kw-2">&amp;</span>res);
+<a href=#428 id=428 data-nosnippet>428</a>		<span class="macro">assert_eq!</span>(res.to_vec(), r2);
+<a href=#429 id=429 data-nosnippet>429</a>
+<a href=#430 id=430 data-nosnippet>430</a>		res = Kuznechik::r(<span class="kw-2">&amp;</span>res);
+<a href=#431 id=431 data-nosnippet>431</a>		<span class="macro">assert_eq!</span>(res.to_vec(), r3);
+<a href=#432 id=432 data-nosnippet>432</a>
+<a href=#433 id=433 data-nosnippet>433</a>		res = Kuznechik::r(<span class="kw-2">&amp;</span>res);	
+<a href=#434 id=434 data-nosnippet>434</a>		<span class="macro">assert_eq!</span>(res.to_vec(), r4);
+<a href=#435 id=435 data-nosnippet>435</a>	}
+<a href=#436 id=436 data-nosnippet>436</a>
+<a href=#437 id=437 data-nosnippet>437</a>	<span class="attr">#[test]
+<a href=#438 id=438 data-nosnippet>438</a>	</span><span class="kw">fn </span>test_l_transform()
+<a href=#439 id=439 data-nosnippet>439</a>	{
+<a href=#440 id=440 data-nosnippet>440</a>		<span class="comment">// Исходная строка
+<a href=#441 id=441 data-nosnippet>441</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>a = hex_to_bytes(<span class="string">"64a59400000000000000000000000000"</span>);
+<a href=#442 id=442 data-nosnippet>442</a>		a.reverse();	<span class="comment">// litte-endian
+<a href=#443 id=443 data-nosnippet>443</a>		</span><span class="kw">let </span>arr: [u8; <span class="number">16</span>] = a.clone().try_into().expect(<span class="string">"должно быть 16 байт"</span>);
+<a href=#444 id=444 data-nosnippet>444</a>
+<a href=#445 id=445 data-nosnippet>445</a>		<span class="comment">// Правильные ответы
+<a href=#446 id=446 data-nosnippet>446</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>l1 = hex_to_bytes(<span class="string">"d456584dd0e3e84cc3166e4b7fa2890d"</span>);
+<a href=#447 id=447 data-nosnippet>447</a>		l1.reverse();
+<a href=#448 id=448 data-nosnippet>448</a>		<span class="kw">let </span><span class="kw-2">mut </span>l2 = hex_to_bytes(<span class="string">"79d26221b87b584cd42fbc4ffea5de9a"</span>);
+<a href=#449 id=449 data-nosnippet>449</a>		l2.reverse();
+<a href=#450 id=450 data-nosnippet>450</a>		<span class="kw">let </span><span class="kw-2">mut </span>l3 = hex_to_bytes(<span class="string">"0e93691a0cfc60408b7b68f66b513c13"</span>);
+<a href=#451 id=451 data-nosnippet>451</a>		l3.reverse();
+<a href=#452 id=452 data-nosnippet>452</a>		<span class="kw">let </span><span class="kw-2">mut </span>l4 = hex_to_bytes(<span class="string">"e6a8094fee0aa204fd97bcb0b44b8580"</span>);
+<a href=#453 id=453 data-nosnippet>453</a>		l4.reverse();
+<a href=#454 id=454 data-nosnippet>454</a>		
+<a href=#455 id=455 data-nosnippet>455</a>		<span class="comment">// Проверки
+<a href=#456 id=456 data-nosnippet>456</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>res = Kuznechik::l(<span class="kw-2">&amp;</span>arr);
+<a href=#457 id=457 data-nosnippet>457</a>		<span class="macro">assert_eq!</span>(res.to_vec(), l1);
+<a href=#458 id=458 data-nosnippet>458</a>
+<a href=#459 id=459 data-nosnippet>459</a>		res = Kuznechik::l(<span class="kw-2">&amp;</span>res);
+<a href=#460 id=460 data-nosnippet>460</a>		<span class="macro">assert_eq!</span>(res.to_vec(), l2);
+<a href=#461 id=461 data-nosnippet>461</a>
+<a href=#462 id=462 data-nosnippet>462</a>		res = Kuznechik::l(<span class="kw-2">&amp;</span>res);
+<a href=#463 id=463 data-nosnippet>463</a>		<span class="macro">assert_eq!</span>(res.to_vec(), l3);
+<a href=#464 id=464 data-nosnippet>464</a>		
+<a href=#465 id=465 data-nosnippet>465</a>		res = Kuznechik::l(<span class="kw-2">&amp;</span>res);	
+<a href=#466 id=466 data-nosnippet>466</a>		<span class="macro">assert_eq!</span>(res.to_vec(), l4);
+<a href=#467 id=467 data-nosnippet>467</a>	}
+<a href=#468 id=468 data-nosnippet>468</a>
+<a href=#469 id=469 data-nosnippet>469</a>	<span class="attr">#[test]
+<a href=#470 id=470 data-nosnippet>470</a>	</span><span class="kw">fn </span>test_c_constants()
+<a href=#471 id=471 data-nosnippet>471</a>	{
+<a href=#472 id=472 data-nosnippet>472</a>		<span class="kw">let </span>c_vec = Kuznechik::iterational_constants();
+<a href=#473 id=473 data-nosnippet>473</a>		<span class="kw">let </span><span class="kw-2">mut </span>c_correct_vec = Vec::with_capacity(<span class="number">8</span>);
+<a href=#474 id=474 data-nosnippet>474</a>
+<a href=#475 id=475 data-nosnippet>475</a>		<span class="comment">// Правильные ответы
+<a href=#476 id=476 data-nosnippet>476</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>c1 = hex_to_bytes(<span class="string">"6ea276726c487ab85d27bd10dd849401"</span>);
+<a href=#477 id=477 data-nosnippet>477</a>		c1.reverse();
+<a href=#478 id=478 data-nosnippet>478</a>		c_correct_vec.push(c1);
+<a href=#479 id=479 data-nosnippet>479</a>
+<a href=#480 id=480 data-nosnippet>480</a>		<span class="kw">let </span><span class="kw-2">mut </span>c2 = hex_to_bytes(<span class="string">"dc87ece4d890f4b3ba4eb92079cbeb02"</span>);
+<a href=#481 id=481 data-nosnippet>481</a>		c2.reverse();
+<a href=#482 id=482 data-nosnippet>482</a>		c_correct_vec.push(c2);
+<a href=#483 id=483 data-nosnippet>483</a>
+<a href=#484 id=484 data-nosnippet>484</a>		<span class="kw">let </span><span class="kw-2">mut </span>c3 = hex_to_bytes(<span class="string">"b2259a96b4d88e0be7690430a44f7f03"</span>);
+<a href=#485 id=485 data-nosnippet>485</a>		c3.reverse();
+<a href=#486 id=486 data-nosnippet>486</a>		c_correct_vec.push(c3);
+<a href=#487 id=487 data-nosnippet>487</a>
+<a href=#488 id=488 data-nosnippet>488</a>		<span class="kw">let </span><span class="kw-2">mut </span>c4 = hex_to_bytes(<span class="string">"7bcd1b0b73e32ba5b79cb140f2551504"</span>);
+<a href=#489 id=489 data-nosnippet>489</a>		c4.reverse();
+<a href=#490 id=490 data-nosnippet>490</a>		c_correct_vec.push(c4);
+<a href=#491 id=491 data-nosnippet>491</a>
+<a href=#492 id=492 data-nosnippet>492</a>		<span class="kw">let </span><span class="kw-2">mut </span>c5 = hex_to_bytes(<span class="string">"156f6d791fab511deabb0c502fd18105"</span>);
+<a href=#493 id=493 data-nosnippet>493</a>		c5.reverse();
+<a href=#494 id=494 data-nosnippet>494</a>		c_correct_vec.push(c5);
+<a href=#495 id=495 data-nosnippet>495</a>
+<a href=#496 id=496 data-nosnippet>496</a>		<span class="kw">let </span><span class="kw-2">mut </span>c6 = hex_to_bytes(<span class="string">"a74af7efab73df160dd208608b9efe06"</span>);
+<a href=#497 id=497 data-nosnippet>497</a>		c6.reverse();
+<a href=#498 id=498 data-nosnippet>498</a>		c_correct_vec.push(c6);
+<a href=#499 id=499 data-nosnippet>499</a>
+<a href=#500 id=500 data-nosnippet>500</a>		<span class="kw">let </span><span class="kw-2">mut </span>c7 = hex_to_bytes(<span class="string">"c9e8819dc73ba5ae50f5b570561a6a07"</span>);
+<a href=#501 id=501 data-nosnippet>501</a>		c7.reverse();
+<a href=#502 id=502 data-nosnippet>502</a>		c_correct_vec.push(c7);
+<a href=#503 id=503 data-nosnippet>503</a>
+<a href=#504 id=504 data-nosnippet>504</a>		<span class="kw">let </span><span class="kw-2">mut </span>c8 = hex_to_bytes(<span class="string">"f6593616e6055689adfba18027aa2a08"</span>);
+<a href=#505 id=505 data-nosnippet>505</a>		c8.reverse();
+<a href=#506 id=506 data-nosnippet>506</a>		c_correct_vec.push(c8);
+<a href=#507 id=507 data-nosnippet>507</a>
+<a href=#508 id=508 data-nosnippet>508</a>		<span class="comment">// Проверка всех значений
+<a href=#509 id=509 data-nosnippet>509</a>		</span><span class="kw">for </span>elem <span class="kw">in </span><span class="number">0</span>..<span class="number">8
+<a href=#510 id=510 data-nosnippet>510</a>		</span>{
+<a href=#511 id=511 data-nosnippet>511</a>			<span class="macro">assert_eq!</span>(c_vec[elem].to_vec(), c_correct_vec[elem]);
+<a href=#512 id=512 data-nosnippet>512</a>		}
+<a href=#513 id=513 data-nosnippet>513</a>	}
+<a href=#514 id=514 data-nosnippet>514</a>
+<a href=#515 id=515 data-nosnippet>515</a>	<span class="attr">#[test]
+<a href=#516 id=516 data-nosnippet>516</a>	</span><span class="kw">fn </span>test_fc()
+<a href=#517 id=517 data-nosnippet>517</a>	{
+<a href=#518 id=518 data-nosnippet>518</a>		<span class="comment">// Начальные данные
+<a href=#519 id=519 data-nosnippet>519</a>		</span><span class="kw">let </span>c_vec = Kuznechik::iterational_constants();
+<a href=#520 id=520 data-nosnippet>520</a>
+<a href=#521 id=521 data-nosnippet>521</a>		<span class="kw">let </span><span class="kw-2">mut </span>k = hex_to_bytes(<span class="string">"8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef"</span>);
+<a href=#522 id=522 data-nosnippet>522</a>		k.reverse();
+<a href=#523 id=523 data-nosnippet>523</a>
+<a href=#524 id=524 data-nosnippet>524</a>		<span class="kw">let </span><span class="kw-2">mut </span>k1: [u8; <span class="number">16</span>] = [<span class="number">0</span>; <span class="number">16</span>];
+<a href=#525 id=525 data-nosnippet>525</a>		k1.copy_from_slice(<span class="kw-2">&amp;</span>k[<span class="number">16</span>..]);
+<a href=#526 id=526 data-nosnippet>526</a>
+<a href=#527 id=527 data-nosnippet>527</a>		<span class="kw">let </span><span class="kw-2">mut </span>k2: [u8; <span class="number">16</span>] = [<span class="number">0</span>; <span class="number">16</span>];
+<a href=#528 id=528 data-nosnippet>528</a>		k2.copy_from_slice(<span class="kw-2">&amp;</span>k[..<span class="number">16</span>]);
+<a href=#529 id=529 data-nosnippet>529</a>
+<a href=#530 id=530 data-nosnippet>530</a>		<span class="comment">// Правильные ответы
+<a href=#531 id=531 data-nosnippet>531</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>correct_results: Vec&lt;(Vec&lt;u8&gt;, Vec&lt;u8&gt;)&gt; = Vec::with_capacity(<span class="number">8</span>);
+<a href=#532 id=532 data-nosnippet>532</a>
+<a href=#533 id=533 data-nosnippet>533</a>		<span class="kw">let </span><span class="kw-2">mut </span>res_left = hex_to_bytes(<span class="string">"c3d5fa01ebe36f7a9374427ad7ca8949"</span>);
+<a href=#534 id=534 data-nosnippet>534</a>		<span class="kw">let </span><span class="kw-2">mut </span>res_right = hex_to_bytes(<span class="string">"8899aabbccddeeff0011223344556677"</span>);
+<a href=#535 id=535 data-nosnippet>535</a>		res_left.reverse();
+<a href=#536 id=536 data-nosnippet>536</a>		res_right.reverse();
+<a href=#537 id=537 data-nosnippet>537</a>		correct_results.push((res_left, res_right));
+<a href=#538 id=538 data-nosnippet>538</a>
+<a href=#539 id=539 data-nosnippet>539</a>		res_left = hex_to_bytes(<span class="string">"37777748e56453377d5e262d90903f87"</span>);
+<a href=#540 id=540 data-nosnippet>540</a>		res_right = hex_to_bytes(<span class="string">"c3d5fa01ebe36f7a9374427ad7ca8949"</span>);
+<a href=#541 id=541 data-nosnippet>541</a>		res_left.reverse();
+<a href=#542 id=542 data-nosnippet>542</a>		res_right.reverse();
+<a href=#543 id=543 data-nosnippet>543</a>		correct_results.push((res_left, res_right));
+<a href=#544 id=544 data-nosnippet>544</a>
+<a href=#545 id=545 data-nosnippet>545</a>		res_left = hex_to_bytes(<span class="string">"f9eae5f29b2815e31f11ac5d9c29fb01"</span>);
+<a href=#546 id=546 data-nosnippet>546</a>		res_right = hex_to_bytes(<span class="string">"37777748e56453377d5e262d90903f87"</span>);
+<a href=#547 id=547 data-nosnippet>547</a>		res_left.reverse();
+<a href=#548 id=548 data-nosnippet>548</a>		res_right.reverse();
+<a href=#549 id=549 data-nosnippet>549</a>		correct_results.push((res_left, res_right));
+<a href=#550 id=550 data-nosnippet>550</a>
+<a href=#551 id=551 data-nosnippet>551</a>		res_left = hex_to_bytes(<span class="string">"e980089683d00d4be37dd3434699b98f"</span>);
+<a href=#552 id=552 data-nosnippet>552</a>		res_right = hex_to_bytes(<span class="string">"f9eae5f29b2815e31f11ac5d9c29fb01"</span>);
+<a href=#553 id=553 data-nosnippet>553</a>		res_left.reverse();
+<a href=#554 id=554 data-nosnippet>554</a>		res_right.reverse();
+<a href=#555 id=555 data-nosnippet>555</a>		correct_results.push((res_left, res_right));
+<a href=#556 id=556 data-nosnippet>556</a>
+<a href=#557 id=557 data-nosnippet>557</a>		res_left = hex_to_bytes(<span class="string">"b7bd70acea4460714f4ebe13835cf004"</span>);
+<a href=#558 id=558 data-nosnippet>558</a>		res_right = hex_to_bytes(<span class="string">"e980089683d00d4be37dd3434699b98f"</span>);
+<a href=#559 id=559 data-nosnippet>559</a>		res_left.reverse();
+<a href=#560 id=560 data-nosnippet>560</a>		res_right.reverse();
+<a href=#561 id=561 data-nosnippet>561</a>		correct_results.push((res_left, res_right));
+<a href=#562 id=562 data-nosnippet>562</a>
+<a href=#563 id=563 data-nosnippet>563</a>		res_left = hex_to_bytes(<span class="string">"1a46ea1cf6ccd236467287df93fdf974"</span>);
+<a href=#564 id=564 data-nosnippet>564</a>		res_right = hex_to_bytes(<span class="string">"b7bd70acea4460714f4ebe13835cf004"</span>);
+<a href=#565 id=565 data-nosnippet>565</a>		res_left.reverse();
+<a href=#566 id=566 data-nosnippet>566</a>		res_right.reverse();
+<a href=#567 id=567 data-nosnippet>567</a>		correct_results.push((res_left, res_right));
+<a href=#568 id=568 data-nosnippet>568</a>
+<a href=#569 id=569 data-nosnippet>569</a>		res_left = hex_to_bytes(<span class="string">"3d4553d8e9cfec6815ebadc40a9ffd04"</span>);
+<a href=#570 id=570 data-nosnippet>570</a>		res_right = hex_to_bytes(<span class="string">"1a46ea1cf6ccd236467287df93fdf974"</span>);
+<a href=#571 id=571 data-nosnippet>571</a>		res_left.reverse();
+<a href=#572 id=572 data-nosnippet>572</a>		res_right.reverse();
+<a href=#573 id=573 data-nosnippet>573</a>		correct_results.push((res_left, res_right));
+<a href=#574 id=574 data-nosnippet>574</a>
+<a href=#575 id=575 data-nosnippet>575</a>		res_left = hex_to_bytes(<span class="string">"db31485315694343228d6aef8cc78c44"</span>);
+<a href=#576 id=576 data-nosnippet>576</a>		res_right = hex_to_bytes(<span class="string">"3d4553d8e9cfec6815ebadc40a9ffd04"</span>);
+<a href=#577 id=577 data-nosnippet>577</a>		res_left.reverse();
+<a href=#578 id=578 data-nosnippet>578</a>		res_right.reverse();
+<a href=#579 id=579 data-nosnippet>579</a>		correct_results.push((res_left, res_right));
+<a href=#580 id=580 data-nosnippet>580</a>
 <a href=#581 id=581 data-nosnippet>581</a>
-<a href=#582 id=582 data-nosnippet>582</a>
-<a href=#583 id=583 data-nosnippet>583</a>		<span class="comment">// Расчет значений
-<a href=#584 id=584 data-nosnippet>584</a>		</span><span class="kw">let </span>i = <span class="number">1</span>;
-<a href=#585 id=585 data-nosnippet>585</a>
-<a href=#586 id=586 data-nosnippet>586</a>		<span class="comment">// F [С_8(i-1)+8]...F[С_8(i-1)+1](K_2i-1, K_2i)
-<a href=#587 id=587 data-nosnippet>587</a>		</span><span class="kw">for </span>iter <span class="kw">in </span><span class="number">0</span>..<span class="number">8 </span><span class="kw">as </span>usize
-<a href=#588 id=588 data-nosnippet>588</a>		{
-<a href=#589 id=589 data-nosnippet>589</a>			(k1, k2) = Kuznechik::fk(<span class="kw-2">&amp;</span>c_vec[<span class="number">8 </span>* (i - <span class="number">1</span>) + iter], <span class="kw-2">&amp;</span>k1, <span class="kw-2">&amp;</span>k2);
-<a href=#590 id=590 data-nosnippet>590</a>			<span class="macro">assert_eq!</span>((k1.to_vec(), k2.to_vec()), correct_results[iter]);
-<a href=#591 id=591 data-nosnippet>591</a>		}
-<a href=#592 id=592 data-nosnippet>592</a>	}
-<a href=#593 id=593 data-nosnippet>593</a>
-<a href=#594 id=594 data-nosnippet>594</a>	<span class="attr">#[test]
-<a href=#595 id=595 data-nosnippet>595</a>	</span><span class="kw">fn </span>test_iterational_keys()
-<a href=#596 id=596 data-nosnippet>596</a>	{
-<a href=#597 id=597 data-nosnippet>597</a>		<span class="comment">// Начальные данные
-<a href=#598 id=598 data-nosnippet>598</a>		</span><span class="kw">let </span>c_vec = Kuznechik::iterational_constants();
-<a href=#599 id=599 data-nosnippet>599</a>		<span class="kw">let </span><span class="kw-2">mut </span>k_vec = Vec::with_capacity(<span class="number">10</span>);
-<a href=#600 id=600 data-nosnippet>600</a>
-<a href=#601 id=601 data-nosnippet>601</a>		<span class="kw">let </span><span class="kw-2">mut </span>k = hex_to_bytes(<span class="string">"8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef"</span>);
-<a href=#602 id=602 data-nosnippet>602</a>		k.reverse();
-<a href=#603 id=603 data-nosnippet>603</a>
-<a href=#604 id=604 data-nosnippet>604</a>		<span class="kw">let </span><span class="kw-2">mut </span>k1: [u8; <span class="number">16</span>] = [<span class="number">0</span>; <span class="number">16</span>];
-<a href=#605 id=605 data-nosnippet>605</a>		k1.copy_from_slice(<span class="kw-2">&amp;</span>k[<span class="number">16</span>..]);
-<a href=#606 id=606 data-nosnippet>606</a>		k_vec.push(k1);
-<a href=#607 id=607 data-nosnippet>607</a>
-<a href=#608 id=608 data-nosnippet>608</a>		<span class="kw">let </span><span class="kw-2">mut </span>k2: [u8; <span class="number">16</span>] = [<span class="number">0</span>; <span class="number">16</span>];
-<a href=#609 id=609 data-nosnippet>609</a>		k2.copy_from_slice(<span class="kw-2">&amp;</span>k[..<span class="number">16</span>]);
-<a href=#610 id=610 data-nosnippet>610</a>		k_vec.push(k2);
-<a href=#611 id=611 data-nosnippet>611</a>
-<a href=#612 id=612 data-nosnippet>612</a>		<span class="comment">// Расчет итерационных ключей
-<a href=#613 id=613 data-nosnippet>613</a>		</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">1</span>..<span class="number">5
-<a href=#614 id=614 data-nosnippet>614</a>		</span>{
-<a href=#615 id=615 data-nosnippet>615</a>			<span class="comment">// F [С_8(i-1)+8]...F[С_8(i-1)+1](K_2i-1, K_2i)
-<a href=#616 id=616 data-nosnippet>616</a>			</span><span class="kw">for </span>iter <span class="kw">in </span><span class="number">0</span>..<span class="number">8 </span><span class="kw">as </span>usize
-<a href=#617 id=617 data-nosnippet>617</a>			{
-<a href=#618 id=618 data-nosnippet>618</a>				(k1, k2) = Kuznechik::fk(<span class="kw-2">&amp;</span>c_vec[<span class="number">8 </span>* (i - <span class="number">1</span>) + iter], <span class="kw-2">&amp;</span>k1, <span class="kw-2">&amp;</span>k2);
-<a href=#619 id=619 data-nosnippet>619</a>			}
-<a href=#620 id=620 data-nosnippet>620</a>
-<a href=#621 id=621 data-nosnippet>621</a>			k_vec.push(k1);
-<a href=#622 id=622 data-nosnippet>622</a>			k_vec.push(k2);
-<a href=#623 id=623 data-nosnippet>623</a>		}
-<a href=#624 id=624 data-nosnippet>624</a>
-<a href=#625 id=625 data-nosnippet>625</a>		<span class="comment">// Правильные ответы
-<a href=#626 id=626 data-nosnippet>626</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>correct_results: Vec&lt;Vec&lt;u8&gt;&gt; = Vec::with_capacity(<span class="number">10</span>);
-<a href=#627 id=627 data-nosnippet>627</a>
-<a href=#628 id=628 data-nosnippet>628</a>		<span class="kw">let </span><span class="kw-2">mut </span>res = hex_to_bytes(<span class="string">"8899aabbccddeeff0011223344556677"</span>);
-<a href=#629 id=629 data-nosnippet>629</a>		res.reverse();
-<a href=#630 id=630 data-nosnippet>630</a>		correct_results.push(res);
-<a href=#631 id=631 data-nosnippet>631</a>
-<a href=#632 id=632 data-nosnippet>632</a>		res = hex_to_bytes(<span class="string">"fedcba98765432100123456789abcdef"</span>);
-<a href=#633 id=633 data-nosnippet>633</a>		res.reverse();
-<a href=#634 id=634 data-nosnippet>634</a>		correct_results.push(res);
-<a href=#635 id=635 data-nosnippet>635</a>
-<a href=#636 id=636 data-nosnippet>636</a>		res = hex_to_bytes(<span class="string">"db31485315694343228d6aef8cc78c44"</span>);
-<a href=#637 id=637 data-nosnippet>637</a>		res.reverse();
-<a href=#638 id=638 data-nosnippet>638</a>		correct_results.push(res);
-<a href=#639 id=639 data-nosnippet>639</a>
-<a href=#640 id=640 data-nosnippet>640</a>		res = hex_to_bytes(<span class="string">"3d4553d8e9cfec6815ebadc40a9ffd04"</span>);
-<a href=#641 id=641 data-nosnippet>641</a>		res.reverse();
-<a href=#642 id=642 data-nosnippet>642</a>		correct_results.push(res);
-<a href=#643 id=643 data-nosnippet>643</a>
-<a href=#644 id=644 data-nosnippet>644</a>		res = hex_to_bytes(<span class="string">"57646468c44a5e28d3e59246f429f1ac"</span>);
-<a href=#645 id=645 data-nosnippet>645</a>		res.reverse();
-<a href=#646 id=646 data-nosnippet>646</a>		correct_results.push(res);
-<a href=#647 id=647 data-nosnippet>647</a>
-<a href=#648 id=648 data-nosnippet>648</a>		res = hex_to_bytes(<span class="string">"bd079435165c6432b532e82834da581b"</span>);
-<a href=#649 id=649 data-nosnippet>649</a>		res.reverse();
-<a href=#650 id=650 data-nosnippet>650</a>		correct_results.push(res);
-<a href=#651 id=651 data-nosnippet>651</a>
-<a href=#652 id=652 data-nosnippet>652</a>		res = hex_to_bytes(<span class="string">"51e640757e8745de705727265a0098b1"</span>);
-<a href=#653 id=653 data-nosnippet>653</a>		res.reverse();
-<a href=#654 id=654 data-nosnippet>654</a>		correct_results.push(res);
-<a href=#655 id=655 data-nosnippet>655</a>
-<a href=#656 id=656 data-nosnippet>656</a>		res = hex_to_bytes(<span class="string">"5a7925017b9fdd3ed72a91a22286f984"</span>);
-<a href=#657 id=657 data-nosnippet>657</a>		res.reverse();
-<a href=#658 id=658 data-nosnippet>658</a>		correct_results.push(res);
-<a href=#659 id=659 data-nosnippet>659</a>
-<a href=#660 id=660 data-nosnippet>660</a>		res = hex_to_bytes(<span class="string">"bb44e25378c73123a5f32f73cdb6e517"</span>);
-<a href=#661 id=661 data-nosnippet>661</a>		res.reverse();
-<a href=#662 id=662 data-nosnippet>662</a>		correct_results.push(res);
-<a href=#663 id=663 data-nosnippet>663</a>
-<a href=#664 id=664 data-nosnippet>664</a>		res = hex_to_bytes(<span class="string">"72e9dd7416bcf45b755dbaa88e4a4043"</span>);
-<a href=#665 id=665 data-nosnippet>665</a>		res.reverse();
-<a href=#666 id=666 data-nosnippet>666</a>		correct_results.push(res);
-<a href=#667 id=667 data-nosnippet>667</a>
-<a href=#668 id=668 data-nosnippet>668</a>		<span class="kw">for </span>idx <span class="kw">in </span><span class="number">0</span>..<span class="number">10
-<a href=#669 id=669 data-nosnippet>669</a>		</span>{
-<a href=#670 id=670 data-nosnippet>670</a>			<span class="macro">assert_eq!</span>(k_vec[idx].to_vec(), correct_results[idx]);
-<a href=#671 id=671 data-nosnippet>671</a>		}
-<a href=#672 id=672 data-nosnippet>672</a>	}
-<a href=#673 id=673 data-nosnippet>673</a>
-<a href=#674 id=674 data-nosnippet>674</a>	<span class="attr">#[test]
-<a href=#675 id=675 data-nosnippet>675</a>	</span><span class="kw">fn </span>test_encryption_kuznechik()
-<a href=#676 id=676 data-nosnippet>676</a>	{
-<a href=#677 id=677 data-nosnippet>677</a>		<span class="comment">// Precomputed keys
-<a href=#678 id=678 data-nosnippet>678</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>k = hex_to_bytes(<span class="string">"8899AABBCCDDEEFF0011223344556677FEDCBA98765432100123456789ABCDEF"</span>);
-<a href=#679 id=679 data-nosnippet>679</a>		k.reverse();
-<a href=#680 id=680 data-nosnippet>680</a>		<span class="kw">let </span><span class="kw-2">mut </span>k1 = hex_to_bytes(<span class="string">"8899AABBCCDDEEFF0011223344556677"</span>);
-<a href=#681 id=681 data-nosnippet>681</a>		k1.reverse();
-<a href=#682 id=682 data-nosnippet>682</a>		<span class="kw">let </span><span class="kw-2">mut </span>k2 = hex_to_bytes(<span class="string">"FEDCBA98765432100123456789ABCDEF"</span>);
-<a href=#683 id=683 data-nosnippet>683</a>		k2.reverse();
-<a href=#684 id=684 data-nosnippet>684</a>		<span class="kw">let </span><span class="kw-2">mut </span>k3 = hex_to_bytes(<span class="string">"DB31485315694343228D6AEF8CC78C44"</span>);
-<a href=#685 id=685 data-nosnippet>685</a>		k3.reverse();
-<a href=#686 id=686 data-nosnippet>686</a>		<span class="kw">let </span><span class="kw-2">mut </span>k4 = hex_to_bytes(<span class="string">"3D4553D8E9CFEC6815EBADC40A9FFD04"</span>);
-<a href=#687 id=687 data-nosnippet>687</a>		k4.reverse();
-<a href=#688 id=688 data-nosnippet>688</a>		<span class="kw">let </span><span class="kw-2">mut </span>k5 = hex_to_bytes(<span class="string">"57646468C44A5E28D3E59246F429F1AC"</span>);
-<a href=#689 id=689 data-nosnippet>689</a>		k5.reverse();
-<a href=#690 id=690 data-nosnippet>690</a>		<span class="kw">let </span><span class="kw-2">mut </span>k6 = hex_to_bytes(<span class="string">"BD079435165C6432B532E82834DA581B"</span>);
-<a href=#691 id=691 data-nosnippet>691</a>		k6.reverse();
-<a href=#692 id=692 data-nosnippet>692</a>		<span class="kw">let </span><span class="kw-2">mut </span>k7 = hex_to_bytes(<span class="string">"51E640757E8745DE705727265A0098B1"</span>);
-<a href=#693 id=693 data-nosnippet>693</a>		k7.reverse();
-<a href=#694 id=694 data-nosnippet>694</a>		<span class="kw">let </span><span class="kw-2">mut </span>k8 = hex_to_bytes(<span class="string">"5A7925017B9FDD3ED72A91A22286F984"</span>);
-<a href=#695 id=695 data-nosnippet>695</a>		k8.reverse();
-<a href=#696 id=696 data-nosnippet>696</a>		<span class="kw">let </span><span class="kw-2">mut </span>k9 = hex_to_bytes(<span class="string">"BB44E25378C73123A5F32F73CDB6E517"</span>);
-<a href=#697 id=697 data-nosnippet>697</a>		k9.reverse();
-<a href=#698 id=698 data-nosnippet>698</a>		<span class="kw">let </span><span class="kw-2">mut </span>k10 = hex_to_bytes(<span class="string">"72E9DD7416BCF45B755DBAA88E4A4043"</span>);
-<a href=#699 id=699 data-nosnippet>699</a>		k10.reverse();
-<a href=#700 id=700 data-nosnippet>700</a>
-<a href=#701 id=701 data-nosnippet>701</a>		<span class="kw">let </span>keys = Kuznechik {keys: (k, <span class="macro">vec!</span>[k1.try_into().unwrap(), 
-<a href=#702 id=702 data-nosnippet>702</a>														k2.try_into().unwrap(),
-<a href=#703 id=703 data-nosnippet>703</a>														k3.try_into().unwrap(),
-<a href=#704 id=704 data-nosnippet>704</a>														k4.try_into().unwrap(), 
-<a href=#705 id=705 data-nosnippet>705</a>														k5.try_into().unwrap(), 
-<a href=#706 id=706 data-nosnippet>706</a>														k6.try_into().unwrap(), 
-<a href=#707 id=707 data-nosnippet>707</a>														k7.try_into().unwrap(), 
-<a href=#708 id=708 data-nosnippet>708</a>														k8.try_into().unwrap(), 
-<a href=#709 id=709 data-nosnippet>709</a>														k9.try_into().unwrap(), 
-<a href=#710 id=710 data-nosnippet>710</a>														k10.try_into().unwrap()
-<a href=#711 id=711 data-nosnippet>711</a>														]
-<a href=#712 id=712 data-nosnippet>712</a>												)
-<a href=#713 id=713 data-nosnippet>713</a>										};
-<a href=#714 id=714 data-nosnippet>714</a>		
-<a href=#715 id=715 data-nosnippet>715</a>		<span class="kw">let </span><span class="kw-2">mut </span>message = hex_to_bytes(<span class="string">"1122334455667700ffeeddccbbaa9988"</span>);
-<a href=#716 id=716 data-nosnippet>716</a>    	message.reverse();
-<a href=#717 id=717 data-nosnippet>717</a>
-<a href=#718 id=718 data-nosnippet>718</a>		<span class="kw">let </span><span class="kw-2">mut </span>encrypted_message = keys.encrypt(<span class="kw-2">&amp;</span>message).unwrap();
-<a href=#719 id=719 data-nosnippet>719</a>		encrypted_message.reverse();
+<a href=#582 id=582 data-nosnippet>582</a>		<span class="comment">// Расчет значений
+<a href=#583 id=583 data-nosnippet>583</a>		</span><span class="kw">let </span>i = <span class="number">1</span>;
+<a href=#584 id=584 data-nosnippet>584</a>
+<a href=#585 id=585 data-nosnippet>585</a>		<span class="comment">// F [С_8(i-1)+8]...F[С_8(i-1)+1](K_2i-1, K_2i)
+<a href=#586 id=586 data-nosnippet>586</a>		</span><span class="kw">for </span>iter <span class="kw">in </span><span class="number">0</span>..<span class="number">8 </span><span class="kw">as </span>usize
+<a href=#587 id=587 data-nosnippet>587</a>		{
+<a href=#588 id=588 data-nosnippet>588</a>			(k1, k2) = Kuznechik::fk(<span class="kw-2">&amp;</span>c_vec[<span class="number">8 </span>* (i - <span class="number">1</span>) + iter], <span class="kw-2">&amp;</span>k1, <span class="kw-2">&amp;</span>k2);
+<a href=#589 id=589 data-nosnippet>589</a>			<span class="macro">assert_eq!</span>((k1.to_vec(), k2.to_vec()), correct_results[iter]);
+<a href=#590 id=590 data-nosnippet>590</a>		}
+<a href=#591 id=591 data-nosnippet>591</a>	}
+<a href=#592 id=592 data-nosnippet>592</a>
+<a href=#593 id=593 data-nosnippet>593</a>	<span class="attr">#[test]
+<a href=#594 id=594 data-nosnippet>594</a>	</span><span class="kw">fn </span>test_iterational_keys()
+<a href=#595 id=595 data-nosnippet>595</a>	{
+<a href=#596 id=596 data-nosnippet>596</a>		<span class="comment">// Начальные данные
+<a href=#597 id=597 data-nosnippet>597</a>		</span><span class="kw">let </span>c_vec = Kuznechik::iterational_constants();
+<a href=#598 id=598 data-nosnippet>598</a>		<span class="kw">let </span><span class="kw-2">mut </span>k_vec = Vec::with_capacity(<span class="number">10</span>);
+<a href=#599 id=599 data-nosnippet>599</a>
+<a href=#600 id=600 data-nosnippet>600</a>		<span class="kw">let </span><span class="kw-2">mut </span>k = hex_to_bytes(<span class="string">"8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef"</span>);
+<a href=#601 id=601 data-nosnippet>601</a>		k.reverse();
+<a href=#602 id=602 data-nosnippet>602</a>
+<a href=#603 id=603 data-nosnippet>603</a>		<span class="kw">let </span><span class="kw-2">mut </span>k1: [u8; <span class="number">16</span>] = [<span class="number">0</span>; <span class="number">16</span>];
+<a href=#604 id=604 data-nosnippet>604</a>		k1.copy_from_slice(<span class="kw-2">&amp;</span>k[<span class="number">16</span>..]);
+<a href=#605 id=605 data-nosnippet>605</a>		k_vec.push(k1);
+<a href=#606 id=606 data-nosnippet>606</a>
+<a href=#607 id=607 data-nosnippet>607</a>		<span class="kw">let </span><span class="kw-2">mut </span>k2: [u8; <span class="number">16</span>] = [<span class="number">0</span>; <span class="number">16</span>];
+<a href=#608 id=608 data-nosnippet>608</a>		k2.copy_from_slice(<span class="kw-2">&amp;</span>k[..<span class="number">16</span>]);
+<a href=#609 id=609 data-nosnippet>609</a>		k_vec.push(k2);
+<a href=#610 id=610 data-nosnippet>610</a>
+<a href=#611 id=611 data-nosnippet>611</a>		<span class="comment">// Расчет итерационных ключей
+<a href=#612 id=612 data-nosnippet>612</a>		</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">1</span>..<span class="number">5
+<a href=#613 id=613 data-nosnippet>613</a>		</span>{
+<a href=#614 id=614 data-nosnippet>614</a>			<span class="comment">// F [С_8(i-1)+8]...F[С_8(i-1)+1](K_2i-1, K_2i)
+<a href=#615 id=615 data-nosnippet>615</a>			</span><span class="kw">for </span>iter <span class="kw">in </span><span class="number">0</span>..<span class="number">8 </span><span class="kw">as </span>usize
+<a href=#616 id=616 data-nosnippet>616</a>			{
+<a href=#617 id=617 data-nosnippet>617</a>				(k1, k2) = Kuznechik::fk(<span class="kw-2">&amp;</span>c_vec[<span class="number">8 </span>* (i - <span class="number">1</span>) + iter], <span class="kw-2">&amp;</span>k1, <span class="kw-2">&amp;</span>k2);
+<a href=#618 id=618 data-nosnippet>618</a>			}
+<a href=#619 id=619 data-nosnippet>619</a>
+<a href=#620 id=620 data-nosnippet>620</a>			k_vec.push(k1);
+<a href=#621 id=621 data-nosnippet>621</a>			k_vec.push(k2);
+<a href=#622 id=622 data-nosnippet>622</a>		}
+<a href=#623 id=623 data-nosnippet>623</a>
+<a href=#624 id=624 data-nosnippet>624</a>		<span class="comment">// Правильные ответы
+<a href=#625 id=625 data-nosnippet>625</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>correct_results: Vec&lt;Vec&lt;u8&gt;&gt; = Vec::with_capacity(<span class="number">10</span>);
+<a href=#626 id=626 data-nosnippet>626</a>
+<a href=#627 id=627 data-nosnippet>627</a>		<span class="kw">let </span><span class="kw-2">mut </span>res = hex_to_bytes(<span class="string">"8899aabbccddeeff0011223344556677"</span>);
+<a href=#628 id=628 data-nosnippet>628</a>		res.reverse();
+<a href=#629 id=629 data-nosnippet>629</a>		correct_results.push(res);
+<a href=#630 id=630 data-nosnippet>630</a>
+<a href=#631 id=631 data-nosnippet>631</a>		res = hex_to_bytes(<span class="string">"fedcba98765432100123456789abcdef"</span>);
+<a href=#632 id=632 data-nosnippet>632</a>		res.reverse();
+<a href=#633 id=633 data-nosnippet>633</a>		correct_results.push(res);
+<a href=#634 id=634 data-nosnippet>634</a>
+<a href=#635 id=635 data-nosnippet>635</a>		res = hex_to_bytes(<span class="string">"db31485315694343228d6aef8cc78c44"</span>);
+<a href=#636 id=636 data-nosnippet>636</a>		res.reverse();
+<a href=#637 id=637 data-nosnippet>637</a>		correct_results.push(res);
+<a href=#638 id=638 data-nosnippet>638</a>
+<a href=#639 id=639 data-nosnippet>639</a>		res = hex_to_bytes(<span class="string">"3d4553d8e9cfec6815ebadc40a9ffd04"</span>);
+<a href=#640 id=640 data-nosnippet>640</a>		res.reverse();
+<a href=#641 id=641 data-nosnippet>641</a>		correct_results.push(res);
+<a href=#642 id=642 data-nosnippet>642</a>
+<a href=#643 id=643 data-nosnippet>643</a>		res = hex_to_bytes(<span class="string">"57646468c44a5e28d3e59246f429f1ac"</span>);
+<a href=#644 id=644 data-nosnippet>644</a>		res.reverse();
+<a href=#645 id=645 data-nosnippet>645</a>		correct_results.push(res);
+<a href=#646 id=646 data-nosnippet>646</a>
+<a href=#647 id=647 data-nosnippet>647</a>		res = hex_to_bytes(<span class="string">"bd079435165c6432b532e82834da581b"</span>);
+<a href=#648 id=648 data-nosnippet>648</a>		res.reverse();
+<a href=#649 id=649 data-nosnippet>649</a>		correct_results.push(res);
+<a href=#650 id=650 data-nosnippet>650</a>
+<a href=#651 id=651 data-nosnippet>651</a>		res = hex_to_bytes(<span class="string">"51e640757e8745de705727265a0098b1"</span>);
+<a href=#652 id=652 data-nosnippet>652</a>		res.reverse();
+<a href=#653 id=653 data-nosnippet>653</a>		correct_results.push(res);
+<a href=#654 id=654 data-nosnippet>654</a>
+<a href=#655 id=655 data-nosnippet>655</a>		res = hex_to_bytes(<span class="string">"5a7925017b9fdd3ed72a91a22286f984"</span>);
+<a href=#656 id=656 data-nosnippet>656</a>		res.reverse();
+<a href=#657 id=657 data-nosnippet>657</a>		correct_results.push(res);
+<a href=#658 id=658 data-nosnippet>658</a>
+<a href=#659 id=659 data-nosnippet>659</a>		res = hex_to_bytes(<span class="string">"bb44e25378c73123a5f32f73cdb6e517"</span>);
+<a href=#660 id=660 data-nosnippet>660</a>		res.reverse();
+<a href=#661 id=661 data-nosnippet>661</a>		correct_results.push(res);
+<a href=#662 id=662 data-nosnippet>662</a>
+<a href=#663 id=663 data-nosnippet>663</a>		res = hex_to_bytes(<span class="string">"72e9dd7416bcf45b755dbaa88e4a4043"</span>);
+<a href=#664 id=664 data-nosnippet>664</a>		res.reverse();
+<a href=#665 id=665 data-nosnippet>665</a>		correct_results.push(res);
+<a href=#666 id=666 data-nosnippet>666</a>
+<a href=#667 id=667 data-nosnippet>667</a>		<span class="kw">for </span>idx <span class="kw">in </span><span class="number">0</span>..<span class="number">10
+<a href=#668 id=668 data-nosnippet>668</a>		</span>{
+<a href=#669 id=669 data-nosnippet>669</a>			<span class="macro">assert_eq!</span>(k_vec[idx].to_vec(), correct_results[idx]);
+<a href=#670 id=670 data-nosnippet>670</a>		}
+<a href=#671 id=671 data-nosnippet>671</a>	}
+<a href=#672 id=672 data-nosnippet>672</a>
+<a href=#673 id=673 data-nosnippet>673</a>	<span class="attr">#[test]
+<a href=#674 id=674 data-nosnippet>674</a>	</span><span class="kw">fn </span>test_encryption_kuznechik()
+<a href=#675 id=675 data-nosnippet>675</a>	{
+<a href=#676 id=676 data-nosnippet>676</a>		<span class="comment">// Precomputed keys
+<a href=#677 id=677 data-nosnippet>677</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>k = hex_to_bytes(<span class="string">"8899AABBCCDDEEFF0011223344556677FEDCBA98765432100123456789ABCDEF"</span>);
+<a href=#678 id=678 data-nosnippet>678</a>		k.reverse();
+<a href=#679 id=679 data-nosnippet>679</a>		<span class="kw">let </span><span class="kw-2">mut </span>k1 = hex_to_bytes(<span class="string">"8899AABBCCDDEEFF0011223344556677"</span>);
+<a href=#680 id=680 data-nosnippet>680</a>		k1.reverse();
+<a href=#681 id=681 data-nosnippet>681</a>		<span class="kw">let </span><span class="kw-2">mut </span>k2 = hex_to_bytes(<span class="string">"FEDCBA98765432100123456789ABCDEF"</span>);
+<a href=#682 id=682 data-nosnippet>682</a>		k2.reverse();
+<a href=#683 id=683 data-nosnippet>683</a>		<span class="kw">let </span><span class="kw-2">mut </span>k3 = hex_to_bytes(<span class="string">"DB31485315694343228D6AEF8CC78C44"</span>);
+<a href=#684 id=684 data-nosnippet>684</a>		k3.reverse();
+<a href=#685 id=685 data-nosnippet>685</a>		<span class="kw">let </span><span class="kw-2">mut </span>k4 = hex_to_bytes(<span class="string">"3D4553D8E9CFEC6815EBADC40A9FFD04"</span>);
+<a href=#686 id=686 data-nosnippet>686</a>		k4.reverse();
+<a href=#687 id=687 data-nosnippet>687</a>		<span class="kw">let </span><span class="kw-2">mut </span>k5 = hex_to_bytes(<span class="string">"57646468C44A5E28D3E59246F429F1AC"</span>);
+<a href=#688 id=688 data-nosnippet>688</a>		k5.reverse();
+<a href=#689 id=689 data-nosnippet>689</a>		<span class="kw">let </span><span class="kw-2">mut </span>k6 = hex_to_bytes(<span class="string">"BD079435165C6432B532E82834DA581B"</span>);
+<a href=#690 id=690 data-nosnippet>690</a>		k6.reverse();
+<a href=#691 id=691 data-nosnippet>691</a>		<span class="kw">let </span><span class="kw-2">mut </span>k7 = hex_to_bytes(<span class="string">"51E640757E8745DE705727265A0098B1"</span>);
+<a href=#692 id=692 data-nosnippet>692</a>		k7.reverse();
+<a href=#693 id=693 data-nosnippet>693</a>		<span class="kw">let </span><span class="kw-2">mut </span>k8 = hex_to_bytes(<span class="string">"5A7925017B9FDD3ED72A91A22286F984"</span>);
+<a href=#694 id=694 data-nosnippet>694</a>		k8.reverse();
+<a href=#695 id=695 data-nosnippet>695</a>		<span class="kw">let </span><span class="kw-2">mut </span>k9 = hex_to_bytes(<span class="string">"BB44E25378C73123A5F32F73CDB6E517"</span>);
+<a href=#696 id=696 data-nosnippet>696</a>		k9.reverse();
+<a href=#697 id=697 data-nosnippet>697</a>		<span class="kw">let </span><span class="kw-2">mut </span>k10 = hex_to_bytes(<span class="string">"72E9DD7416BCF45B755DBAA88E4A4043"</span>);
+<a href=#698 id=698 data-nosnippet>698</a>		k10.reverse();
+<a href=#699 id=699 data-nosnippet>699</a>
+<a href=#700 id=700 data-nosnippet>700</a>		<span class="kw">let </span>keys = Kuznechik {keys: (k, <span class="macro">vec!</span>[k1.try_into().unwrap(), 
+<a href=#701 id=701 data-nosnippet>701</a>														k2.try_into().unwrap(),
+<a href=#702 id=702 data-nosnippet>702</a>														k3.try_into().unwrap(),
+<a href=#703 id=703 data-nosnippet>703</a>														k4.try_into().unwrap(), 
+<a href=#704 id=704 data-nosnippet>704</a>														k5.try_into().unwrap(), 
+<a href=#705 id=705 data-nosnippet>705</a>														k6.try_into().unwrap(), 
+<a href=#706 id=706 data-nosnippet>706</a>														k7.try_into().unwrap(), 
+<a href=#707 id=707 data-nosnippet>707</a>														k8.try_into().unwrap(), 
+<a href=#708 id=708 data-nosnippet>708</a>														k9.try_into().unwrap(), 
+<a href=#709 id=709 data-nosnippet>709</a>														k10.try_into().unwrap()
+<a href=#710 id=710 data-nosnippet>710</a>														]
+<a href=#711 id=711 data-nosnippet>711</a>												)
+<a href=#712 id=712 data-nosnippet>712</a>										};
+<a href=#713 id=713 data-nosnippet>713</a>		
+<a href=#714 id=714 data-nosnippet>714</a>		<span class="kw">let </span><span class="kw-2">mut </span>message = hex_to_bytes(<span class="string">"1122334455667700ffeeddccbbaa9988"</span>);
+<a href=#715 id=715 data-nosnippet>715</a>    	message.reverse();
+<a href=#716 id=716 data-nosnippet>716</a>
+<a href=#717 id=717 data-nosnippet>717</a>		<span class="kw">let </span><span class="kw-2">mut </span>encrypted_message = keys.encrypt(<span class="kw-2">&amp;</span>message).unwrap();
+<a href=#718 id=718 data-nosnippet>718</a>		encrypted_message.reverse();
+<a href=#719 id=719 data-nosnippet>719</a>
 <a href=#720 id=720 data-nosnippet>720</a>
-<a href=#721 id=721 data-nosnippet>721</a>
-<a href=#722 id=722 data-nosnippet>722</a>		<span class="comment">// Правильный результат
-<a href=#723 id=723 data-nosnippet>723</a>		</span><span class="kw">let </span>result = hex_to_bytes(<span class="string">"7f679d90bebc24305a468d42b9d4edcd"</span>);
-<a href=#724 id=724 data-nosnippet>724</a>
-<a href=#725 id=725 data-nosnippet>725</a>		<span class="macro">assert_eq!</span>(encrypted_message.to_vec(), result);
-<a href=#726 id=726 data-nosnippet>726</a>	}
-<a href=#727 id=727 data-nosnippet>727</a>
-<a href=#728 id=728 data-nosnippet>728</a>	<span class="attr">#[test]
-<a href=#729 id=729 data-nosnippet>729</a>	</span><span class="kw">fn </span>test_decryption_kuznechik()
-<a href=#730 id=730 data-nosnippet>730</a>	{
-<a href=#731 id=731 data-nosnippet>731</a>		<span class="comment">// Precomputed keys
-<a href=#732 id=732 data-nosnippet>732</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>k = hex_to_bytes(<span class="string">"8899AABBCCDDEEFF0011223344556677FEDCBA98765432100123456789ABCDEF"</span>);
-<a href=#733 id=733 data-nosnippet>733</a>		k.reverse();
-<a href=#734 id=734 data-nosnippet>734</a>		<span class="kw">let </span><span class="kw-2">mut </span>k1 = hex_to_bytes(<span class="string">"8899AABBCCDDEEFF0011223344556677"</span>);
-<a href=#735 id=735 data-nosnippet>735</a>		k1.reverse();
-<a href=#736 id=736 data-nosnippet>736</a>		<span class="kw">let </span><span class="kw-2">mut </span>k2 = hex_to_bytes(<span class="string">"FEDCBA98765432100123456789ABCDEF"</span>);
-<a href=#737 id=737 data-nosnippet>737</a>		k2.reverse();
-<a href=#738 id=738 data-nosnippet>738</a>		<span class="kw">let </span><span class="kw-2">mut </span>k3 = hex_to_bytes(<span class="string">"DB31485315694343228D6AEF8CC78C44"</span>);
-<a href=#739 id=739 data-nosnippet>739</a>		k3.reverse();
-<a href=#740 id=740 data-nosnippet>740</a>		<span class="kw">let </span><span class="kw-2">mut </span>k4 = hex_to_bytes(<span class="string">"3D4553D8E9CFEC6815EBADC40A9FFD04"</span>);
-<a href=#741 id=741 data-nosnippet>741</a>		k4.reverse();
-<a href=#742 id=742 data-nosnippet>742</a>		<span class="kw">let </span><span class="kw-2">mut </span>k5 = hex_to_bytes(<span class="string">"57646468C44A5E28D3E59246F429F1AC"</span>);
-<a href=#743 id=743 data-nosnippet>743</a>		k5.reverse();
-<a href=#744 id=744 data-nosnippet>744</a>		<span class="kw">let </span><span class="kw-2">mut </span>k6 = hex_to_bytes(<span class="string">"BD079435165C6432B532E82834DA581B"</span>);
-<a href=#745 id=745 data-nosnippet>745</a>		k6.reverse();
-<a href=#746 id=746 data-nosnippet>746</a>		<span class="kw">let </span><span class="kw-2">mut </span>k7 = hex_to_bytes(<span class="string">"51E640757E8745DE705727265A0098B1"</span>);
-<a href=#747 id=747 data-nosnippet>747</a>		k7.reverse();
-<a href=#748 id=748 data-nosnippet>748</a>		<span class="kw">let </span><span class="kw-2">mut </span>k8 = hex_to_bytes(<span class="string">"5A7925017B9FDD3ED72A91A22286F984"</span>);
-<a href=#749 id=749 data-nosnippet>749</a>		k8.reverse();
-<a href=#750 id=750 data-nosnippet>750</a>		<span class="kw">let </span><span class="kw-2">mut </span>k9 = hex_to_bytes(<span class="string">"BB44E25378C73123A5F32F73CDB6E517"</span>);
-<a href=#751 id=751 data-nosnippet>751</a>		k9.reverse();
-<a href=#752 id=752 data-nosnippet>752</a>		<span class="kw">let </span><span class="kw-2">mut </span>k10 = hex_to_bytes(<span class="string">"72E9DD7416BCF45B755DBAA88E4A4043"</span>);
-<a href=#753 id=753 data-nosnippet>753</a>		k10.reverse();
-<a href=#754 id=754 data-nosnippet>754</a>
-<a href=#755 id=755 data-nosnippet>755</a>		<span class="kw">let </span>keys = Kuznechik {keys: (k, <span class="macro">vec!</span>[k1.try_into().unwrap(), 
-<a href=#756 id=756 data-nosnippet>756</a>														k2.try_into().unwrap(),
-<a href=#757 id=757 data-nosnippet>757</a>														k3.try_into().unwrap(),
-<a href=#758 id=758 data-nosnippet>758</a>														k4.try_into().unwrap(), 
-<a href=#759 id=759 data-nosnippet>759</a>														k5.try_into().unwrap(), 
-<a href=#760 id=760 data-nosnippet>760</a>														k6.try_into().unwrap(), 
-<a href=#761 id=761 data-nosnippet>761</a>														k7.try_into().unwrap(), 
-<a href=#762 id=762 data-nosnippet>762</a>														k8.try_into().unwrap(), 
-<a href=#763 id=763 data-nosnippet>763</a>														k9.try_into().unwrap(), 
-<a href=#764 id=764 data-nosnippet>764</a>														k10.try_into().unwrap()
-<a href=#765 id=765 data-nosnippet>765</a>														]
-<a href=#766 id=766 data-nosnippet>766</a>												)
-<a href=#767 id=767 data-nosnippet>767</a>										};
-<a href=#768 id=768 data-nosnippet>768</a>
-<a href=#769 id=769 data-nosnippet>769</a>		<span class="kw">let </span><span class="kw-2">mut </span>message = hex_to_bytes(<span class="string">"7f679d90bebc24305a468d42b9d4edcd"</span>);
-<a href=#770 id=770 data-nosnippet>770</a>		message.reverse();
-<a href=#771 id=771 data-nosnippet>771</a>
-<a href=#772 id=772 data-nosnippet>772</a>		<span class="kw">let </span><span class="kw-2">mut </span>decrypted_message= keys.decrypt(<span class="kw-2">&amp;</span>message).unwrap();
-<a href=#773 id=773 data-nosnippet>773</a>		decrypted_message.reverse();
-<a href=#774 id=774 data-nosnippet>774</a>
-<a href=#775 id=775 data-nosnippet>775</a>		<span class="comment">// Правильный результат
-<a href=#776 id=776 data-nosnippet>776</a>		</span><span class="kw">let </span>result = hex_to_bytes(<span class="string">"1122334455667700ffeeddccbbaa9988"</span>);
-<a href=#777 id=777 data-nosnippet>777</a>
-<a href=#778 id=778 data-nosnippet>778</a>		<span class="macro">assert_eq!</span>(decrypted_message.to_vec(), result);
-<a href=#779 id=779 data-nosnippet>779</a>	}
-<a href=#780 id=780 data-nosnippet>780</a>}</code></pre></div></section></main></body></html>
+<a href=#721 id=721 data-nosnippet>721</a>		<span class="comment">// Правильный результат
+<a href=#722 id=722 data-nosnippet>722</a>		</span><span class="kw">let </span>result = hex_to_bytes(<span class="string">"7f679d90bebc24305a468d42b9d4edcd"</span>);
+<a href=#723 id=723 data-nosnippet>723</a>
+<a href=#724 id=724 data-nosnippet>724</a>		<span class="macro">assert_eq!</span>(encrypted_message.to_vec(), result);
+<a href=#725 id=725 data-nosnippet>725</a>	}
+<a href=#726 id=726 data-nosnippet>726</a>
+<a href=#727 id=727 data-nosnippet>727</a>	<span class="attr">#[test]
+<a href=#728 id=728 data-nosnippet>728</a>	</span><span class="kw">fn </span>test_decryption_kuznechik()
+<a href=#729 id=729 data-nosnippet>729</a>	{
+<a href=#730 id=730 data-nosnippet>730</a>		<span class="comment">// Precomputed keys
+<a href=#731 id=731 data-nosnippet>731</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>k = hex_to_bytes(<span class="string">"8899AABBCCDDEEFF0011223344556677FEDCBA98765432100123456789ABCDEF"</span>);
+<a href=#732 id=732 data-nosnippet>732</a>		k.reverse();
+<a href=#733 id=733 data-nosnippet>733</a>		<span class="kw">let </span><span class="kw-2">mut </span>k1 = hex_to_bytes(<span class="string">"8899AABBCCDDEEFF0011223344556677"</span>);
+<a href=#734 id=734 data-nosnippet>734</a>		k1.reverse();
+<a href=#735 id=735 data-nosnippet>735</a>		<span class="kw">let </span><span class="kw-2">mut </span>k2 = hex_to_bytes(<span class="string">"FEDCBA98765432100123456789ABCDEF"</span>);
+<a href=#736 id=736 data-nosnippet>736</a>		k2.reverse();
+<a href=#737 id=737 data-nosnippet>737</a>		<span class="kw">let </span><span class="kw-2">mut </span>k3 = hex_to_bytes(<span class="string">"DB31485315694343228D6AEF8CC78C44"</span>);
+<a href=#738 id=738 data-nosnippet>738</a>		k3.reverse();
+<a href=#739 id=739 data-nosnippet>739</a>		<span class="kw">let </span><span class="kw-2">mut </span>k4 = hex_to_bytes(<span class="string">"3D4553D8E9CFEC6815EBADC40A9FFD04"</span>);
+<a href=#740 id=740 data-nosnippet>740</a>		k4.reverse();
+<a href=#741 id=741 data-nosnippet>741</a>		<span class="kw">let </span><span class="kw-2">mut </span>k5 = hex_to_bytes(<span class="string">"57646468C44A5E28D3E59246F429F1AC"</span>);
+<a href=#742 id=742 data-nosnippet>742</a>		k5.reverse();
+<a href=#743 id=743 data-nosnippet>743</a>		<span class="kw">let </span><span class="kw-2">mut </span>k6 = hex_to_bytes(<span class="string">"BD079435165C6432B532E82834DA581B"</span>);
+<a href=#744 id=744 data-nosnippet>744</a>		k6.reverse();
+<a href=#745 id=745 data-nosnippet>745</a>		<span class="kw">let </span><span class="kw-2">mut </span>k7 = hex_to_bytes(<span class="string">"51E640757E8745DE705727265A0098B1"</span>);
+<a href=#746 id=746 data-nosnippet>746</a>		k7.reverse();
+<a href=#747 id=747 data-nosnippet>747</a>		<span class="kw">let </span><span class="kw-2">mut </span>k8 = hex_to_bytes(<span class="string">"5A7925017B9FDD3ED72A91A22286F984"</span>);
+<a href=#748 id=748 data-nosnippet>748</a>		k8.reverse();
+<a href=#749 id=749 data-nosnippet>749</a>		<span class="kw">let </span><span class="kw-2">mut </span>k9 = hex_to_bytes(<span class="string">"BB44E25378C73123A5F32F73CDB6E517"</span>);
+<a href=#750 id=750 data-nosnippet>750</a>		k9.reverse();
+<a href=#751 id=751 data-nosnippet>751</a>		<span class="kw">let </span><span class="kw-2">mut </span>k10 = hex_to_bytes(<span class="string">"72E9DD7416BCF45B755DBAA88E4A4043"</span>);
+<a href=#752 id=752 data-nosnippet>752</a>		k10.reverse();
+<a href=#753 id=753 data-nosnippet>753</a>
+<a href=#754 id=754 data-nosnippet>754</a>		<span class="kw">let </span>keys = Kuznechik {keys: (k, <span class="macro">vec!</span>[k1.try_into().unwrap(), 
+<a href=#755 id=755 data-nosnippet>755</a>														k2.try_into().unwrap(),
+<a href=#756 id=756 data-nosnippet>756</a>														k3.try_into().unwrap(),
+<a href=#757 id=757 data-nosnippet>757</a>														k4.try_into().unwrap(), 
+<a href=#758 id=758 data-nosnippet>758</a>														k5.try_into().unwrap(), 
+<a href=#759 id=759 data-nosnippet>759</a>														k6.try_into().unwrap(), 
+<a href=#760 id=760 data-nosnippet>760</a>														k7.try_into().unwrap(), 
+<a href=#761 id=761 data-nosnippet>761</a>														k8.try_into().unwrap(), 
+<a href=#762 id=762 data-nosnippet>762</a>														k9.try_into().unwrap(), 
+<a href=#763 id=763 data-nosnippet>763</a>														k10.try_into().unwrap()
+<a href=#764 id=764 data-nosnippet>764</a>														]
+<a href=#765 id=765 data-nosnippet>765</a>												)
+<a href=#766 id=766 data-nosnippet>766</a>										};
+<a href=#767 id=767 data-nosnippet>767</a>
+<a href=#768 id=768 data-nosnippet>768</a>		<span class="kw">let </span><span class="kw-2">mut </span>message = hex_to_bytes(<span class="string">"7f679d90bebc24305a468d42b9d4edcd"</span>);
+<a href=#769 id=769 data-nosnippet>769</a>		message.reverse();
+<a href=#770 id=770 data-nosnippet>770</a>
+<a href=#771 id=771 data-nosnippet>771</a>		<span class="kw">let </span><span class="kw-2">mut </span>decrypted_message= keys.decrypt(<span class="kw-2">&amp;</span>message).unwrap();
+<a href=#772 id=772 data-nosnippet>772</a>		decrypted_message.reverse();
+<a href=#773 id=773 data-nosnippet>773</a>
+<a href=#774 id=774 data-nosnippet>774</a>		<span class="comment">// Правильный результат
+<a href=#775 id=775 data-nosnippet>775</a>		</span><span class="kw">let </span>result = hex_to_bytes(<span class="string">"1122334455667700ffeeddccbbaa9988"</span>);
+<a href=#776 id=776 data-nosnippet>776</a>
+<a href=#777 id=777 data-nosnippet>777</a>		<span class="macro">assert_eq!</span>(decrypted_message.to_vec(), result);
+<a href=#778 id=778 data-nosnippet>778</a>	}
+<a href=#779 id=779 data-nosnippet>779</a>}</code></pre></div></section></main></body></html>
