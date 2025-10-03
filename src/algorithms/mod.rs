@@ -3,6 +3,14 @@ pub mod streebog;
 pub mod kuznechik;
 pub mod block_cipher_modes;
 
+/// Печатает символы из байтовой строки с конца. Используется функция для
+/// провеки значений при отладке и тестах.
+pub fn print_bytes(bytes: &[u8]) {
+    for b in bytes[..].iter().rev() {
+        print!("{:02x}", b);
+    }
+}
+
 // Перевод шестнацетиричных чисел в байты (Исходное представление big Endian)
 pub fn hex_to_bytes(hex: &str) -> Vec<u8> {
     (0..hex.len())

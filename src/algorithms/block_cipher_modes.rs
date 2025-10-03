@@ -99,19 +99,31 @@ impl CipherModes {
     fn msb(str_a: &[u8], s: usize) -> Vec<u8>
     {
         let mut res = str_a.to_vec();
-        let mask: u8 = !((1 << s % 8) - 1);     // Обратная маска для зануления младших бит
-        res[s/8] &= mask;                       // Зануление младших бит
+        let byte_count = s/8;
+        let bit_count = s%8;
+
+        if bit_count != 0 {
+            // Маска для оставления только старших bit_idx бит
+            let mask: u8 = 0xFF << (8 - bit_count);
+            res[byte_count] &= mask;
+        }
+
+        // Обнуляем все байты после нужного
+        for i in byte_count+1..res.len() {
+            res[i] = 0;
+        }
 
         res
     }
 
     /// Режим гаммирования (Counter) с входным сообщением message, представленным срезом байтов
     /// Параметром s, представляющем число бит шифрования, и IV - инициализирующим вектором,
-    /// который для каждого нового сообщения формируется новый
-    pub fn ctr_encrypt(&self, message: &[u8], s: usize, iv: &[u8; 8]) -> Vec<u8>
+    /// который для каждого нового сообщения формируется новый. С помощью данного метода
+    /// можно прозводить как шифрование сообщений, так и расшифрование.
+    pub fn ctr_crypt(&self, message: &[u8], s: usize, iv: &[u8; 8]) -> Vec<u8>
     {
         // s - число бит, которые будут шифроваться
-        if s > 128
+        if s < 1 || s > 128
         {
             panic!("S must be <= 128");
         }
@@ -122,67 +134,83 @@ impl CipherModes {
         let mut ctr: [u8; 16] = [0; 16];
         ctr[8..].copy_from_slice(iv);
 
-        // Данные для анализа байтов
-        let chunk_size = if s%8 == 0 {s/8} else {s/8 + 1};
-        let bits_check = s%8;
+        let mut cur_idx = 0;     // Текущий обрабатываемый бит
+        let mut cur_byte = 0;    // Текущий обрабатываемый байт
 
-        let cur_idx = 0;
-
-        // Доделать битовое шифрование
-        while cur_idx <= message.len()
+        // Шифрование сообщения блоками длины s
+        loop
         {
-            // 5.2.2 (4)
+            // Проверка, что все биты обработаны
+            if (cur_idx + cur_byte*8) >= message.len()*8 {break;}
+
+            // Сколько осталось отработать бит из s на данный момент
+            let mut rem_bits = s;
+
             let ek_ctr = self.keys.encrypt(&ctr).unwrap();
 
-            // Обрезание младших бит у ctr
+            // Зануление младших бит у ctr
             let gamma = Self::msb(&ek_ctr, s);
             let gamma_u8: &[u8; 16] = gamma[..].try_into().unwrap();
 
-            // Обрезание младших бит у part
-            let trunc_part = Self::msb(&message[cur_idx..(cur_idx + chunk_size)], s);
-            let part_u8:&[u8; 16] = trunc_part[..].try_into().unwrap();
-        }
+            // Обработка rem_bit = s
+            let mut c = 0;      // C_i
+            let mut byte_m:u8;      // Байт message
+            let mut byte_ctr:u8;    // Байт Ctr
 
-        // Побайтовая итерация, при которой анализируются биты
-        for part in message.chunks(chunk_size)
-        {
-            // 5.2.2 (4)
-            let ek_ctr = self.keys.encrypt(&ctr).unwrap();
-
-            // Обрезание младших бит у ctr
-            let gamma = Self::msb(&ek_ctr, s);
-            let gamma_u8: &[u8; 16] = gamma[..].try_into().unwrap();
-
-            // Обрезание младших бит у part
-            let trunc_part = Self::msb(part, s);
-            let part_u8:&[u8; 16] = trunc_part[..].try_into().unwrap();
-
-            let c = sum_mod2(part_u8, gamma_u8);
-
-            if !res.is_empty()
+            // Пока остались биты на обработку
+            while rem_bits != 0 
             {
-                let last = res.last_mut().unwrap();
-                *last |= c[0];
-            }
+                if cur_byte >= message.len() {break;}
 
-            res.extend(c);      // Помещение результата в массив
+                // Если message[cur_byte] = 0101 1100 и cur_idx = 3
+                byte_m = message[cur_byte] << cur_idx; // Зануление старших обработанных битов даст byte = 1110 0000
+                byte_m = byte_m >> cur_idx;            // Возврат к исходному положению не зануленных бит byte = 0001 1100
+                
+                // Часть ctr
+                byte_ctr = gamma_u8[cur_byte % 16] << cur_idx;
+                byte_ctr = byte_ctr >> cur_idx; 
+
+                // Если операция выполняется на нескольких байтах
+                if (cur_idx + rem_bits) >= 8
+                {
+                    rem_bits = rem_bits - (8 - cur_idx);
+
+                    // Переход к следующему байту
+                    cur_idx = 0;
+                    cur_byte += 1;
+                    
+                    c = c | (byte_m ^ byte_ctr);  // Суммирование по модулю 2 (Если s < 8, то добавляем части предыдущего результата)
+                    res.push(c);                  // Помещение результата в массив
+                    c = 0;                        // Обнуление результата нового байта
+                }
+                // Если операция выполняется на одном байте
+                else {
+                    // Если message[cur_byte] = 0001 1100 и cur_idx = 3 и s = 2 
+                    byte_m = byte_m >> (8 - (cur_idx + rem_bits));  // Зануление младших бит, которые обрабатывать не надо, даст byte = 0000 0011
+                    byte_m = byte_m << (8 - (cur_idx + rem_bits));  // Возврат к исходному положению не зануленных бит yte = 0001 1000
+
+                    // Часть ctr
+                    byte_ctr = byte_ctr >> (8 - (cur_idx + rem_bits));
+                    byte_ctr = byte_ctr << (8 - (cur_idx + rem_bits)); 
+                    
+                    cur_idx += rem_bits;
+                    rem_bits -= rem_bits;
+
+                    c = c | (byte_m ^ byte_ctr);  // Суммирование по модулю 2 (Если s < 8, то добавляем части предыдущего результата)
+                }
+            }
 
             ctr = Self::add_ctr(&ctr);
         }
 
         res
     }
-
-    pub fn ctr_decrypt()
-    {
-
-    }
 }
 
 #[cfg(test)]
 mod tests
 {
-    use crate::algorithms::{hex_to_bytes, to_hex};
+    use crate::algorithms::{hex_to_bytes, to_hex, print_bytes};
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
@@ -256,5 +284,65 @@ mod tests
         assert_eq!(decrypted_result, message);
     }
 
+    #[test]
+    fn test_ctr_encrypt_decrypt()
+    {
+        // IV - initalizing vector
+        let mut iv_str = hex_to_bytes("1234567890abcef0");
+        iv_str.reverse();
+        let mut iv: [u8; 8] = [0; 8];
+        iv.copy_from_slice(&iv_str);
 
+        // K - начальный ключ для формирования итерационных
+        let mut k = hex_to_bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef");
+        k.reverse();
+
+        // Все части сообщения разбитые по 128 бит
+        let mut p1 = hex_to_bytes("1122334455667700ffeeddccbbaa9988");
+        p1.reverse();
+        let mut p2 = hex_to_bytes("00112233445566778899aabbcceeff0a");
+        p2.reverse();
+        let mut p3 = hex_to_bytes("112233445566778899aabbcceeff0a00");
+        p3.reverse();
+        let mut p4 = hex_to_bytes("2233445566778899aabbcceeff0a0011");
+        p4.reverse();
+
+        // Формирование последовательного сообщения
+        let mut p: Vec<u8> = vec![];
+        p.extend(&p1);
+        p.extend(&p2);
+        p.extend(&p3);
+        p.extend(&p4);
+        
+        // Формирование итерационных ключей
+        let mut kuz_ecb = CipherModes::new();
+        kuz_ecb.keys.keys = Kuznechik::key_generate_with_precopmuted_key(&k);
+
+        // Шифрование
+        let res = kuz_ecb.ctr_crypt(&p, 128, &iv);
+
+
+        // Правильные значения 
+        let mut c1 = hex_to_bytes("f195d8bec10ed1dbd57b5fa240bda1b8");
+        c1.reverse();
+        let mut c2 = hex_to_bytes("85eee733f6a13e5df33ce4b33c45dee4");
+        c2.reverse();
+        let mut c3 = hex_to_bytes("a5eae88be6356ed3d5e877f13564a3a5");
+        c3.reverse();
+        let mut c4 = hex_to_bytes("cb91fab1f20cbab6d1c6d15820bdba73");
+        c4.reverse();
+
+        assert_eq!(res[0..16], c1);
+        assert_eq!(res[16..32], c2);
+        assert_eq!(res[32..48], c3);
+        assert_eq!(res[48..], c4);
+
+        // Расшифрование
+        let decrypt_res = kuz_ecb.ctr_crypt(&res, 128, &iv);
+
+        assert_eq!(decrypt_res[0..16], p1);
+        assert_eq!(decrypt_res[16..32], p2);
+        assert_eq!(decrypt_res[32..48], p3);
+        assert_eq!(decrypt_res[48..], p4);
+    }
 }

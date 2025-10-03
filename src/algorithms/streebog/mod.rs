@@ -1,14 +1,6 @@
 pub mod consts;
 use crate::algorithms::hex_to_bytes;
-use crate::algorithms::{sum_mod2_wo, sum_mod2};
-
-/// Печатает символы из байтовой строки с конца. Используется функция для
-/// провеки значений при отладке и тестах.
-pub fn print_bytes(bytes: &[u8]) {
-    for b in bytes[..].iter().rev() {
-        print!("{:02x}", b);
-    }
-}
+use crate::algorithms::{sum_mod2_wo, sum_mod2, print_bytes};
 
 // Получить мощность сообщения в формате [u8; 64]
 fn power_to_u64(rem: u128) -> [u8; 64]

@@ -1,6 +1,6 @@
 use std::{fs::File, io::{BufRead, BufReader, Write}, path::{Path, PathBuf}, vec};
 
-use crate::algorithms::{hex_to_bytes, kuznechik::consts::{KUZ_PI, KUZ_PI_INV, L_VEC}, to_hex};
+use crate::algorithms::{hex_to_bytes, kuznechik::consts::{KUZ_PI, KUZ_PI_INV, L_VEC}, to_hex, print_bytes};
 
 pub mod consts;
 
@@ -401,7 +401,6 @@ mod tests
 	// Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
     use crate::algorithms::hex_to_bytes;
-	use crate::algorithms::streebog::print_bytes;
 
 	#[test]
 	fn test_r_transform()
