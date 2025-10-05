@@ -1,7 +1,3 @@
-use std::path::PathBuf;
-
-use crate::algorithms::hex_to_bytes;
-
 pub mod algorithms;
 
 fn main() {

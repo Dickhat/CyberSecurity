@@ -1,5 +1,3 @@
-use crate::algorithms::sum_mod2;
-
 use super::{kuznechik::Kuznechik, sum_mod2_wo, hex_to_bytes};
 
 pub struct CipherModes
@@ -247,112 +245,131 @@ impl CipherModes {
         res
     }
 
-    // Режим гаммирования с обратной связью по выходу (Output Feedback) с входным сообщением
-    // message, представленным срезом байтов, параметром s, представляющем число бит шифрования,
-    // параметром m = 128*z, где z - целое >= 1, а также IV - инициализирующим вектором длины m,
-    // который для каждого нового сообщения формируется новый.
+    /// Режим гаммирования с обратной связью по выходу (Output Feedback) с входным сообщением
+    /// message, представленным срезом байтов, параметром s, представляющем число бит шифрования,
+    /// параметром m = 128*z, где z - целое >= 1, а также IV - инициализирующим вектором длины m,
+    /// который для каждого нового сообщения формируется новый.
+    pub fn ofb_encrypt(&self, message: &[u8], s: usize, z:usize)
+    {
+        // s - число бит, которые будут шифроваться
+        if s < 1 || s > 128
+        {
+            panic!("S must be <= 128");
+        }
 
-    // pub fn ofb_encrypt(&self, message: &[u8], s: usize, z:usize)
-    // {
-    //     // s - число бит, которые будут шифроваться
-    //     if s < 1 || s > 128
-    //     {
-    //         panic!("S must be <= 128");
-    //     }
+        // z - целое для определения длины регистра и размера IV
+        if z < 1
+        {
+            panic!("Z must be >= 1");
+        }
 
-    //     // z - целое для определения длины регистра и размера IV
-    //     if z < 1
-    //     {
-    //         panic!("Z must be >= 1");
-    //     }
+        let m = 128*z/8;            // Длина m в байтах
+        let mut r = vec![0u8; m]; // Регистр длины m байт
 
-    //     let m = 128*z/8;            // Длина m в байтах
-    //     let mut r = vec![0u8; m]; // Регистр длины m байт
+        // Подготовленный из ГОСТА
+        let mut iv_u8 = hex_to_bytes("1234567890abcef0a1b2c3d4e5f0011223344556677889901213141516171819");
+        iv_u8.reverse();
+        let mut iv = vec![0u8; m]; // IV длины m байт
+        iv.extend_from_slice(&iv_u8);
 
-    //     // Подготовленный из ГОСТА
-    //     let mut iv_u8 = hex_to_bytes("1234567890abcef0a1b2c3d4e5f0011223344556677889901213141516171819");
-    //     iv_u8.reverse();
-    //     let mut iv = vec![0u8; m]; // IV длины m байт
-    //     iv.extend_from_slice(&iv_u8);
+        let mut res:Vec<u8> = vec![];
 
-    //     let mut res:Vec<u8> = vec![];
+        let mut c = 0;              // Байт результата
+        let mut cur_idx = 0;     // Текущий обрабатываемый бит
+        let mut cur_byte = 0;    // Текущий обрабатываемый байт
 
-    //     let mut cur_idx = 0;     // Текущий обрабатываемый бит
-    //     let mut cur_byte = 0;    // Текущий обрабатываемый байт
+        // Шифрование сообщения блоками длины s со сдвигом регистра R на 
+        // Шифрование сообщения блоками длины s
+        loop
+        {
+            // Проверка, что все биты обработаны
+            if (cur_idx + cur_byte*8) >= message.len()*8 {break;}
 
-    //     // Шифрование сообщения блоками длины s со сдвигом регистра R на 
-    //     loop
-    //     {
-    //         // Проверка, что все биты обработаны
-    //         if (cur_idx + cur_byte*8) >= message.len()*8 {break;}
+            // Сколько осталось отработать бит из s на данный момент
+            let mut rem_bits = s;
 
-    //         let ek_r = self.keys.encrypt(&r).unwrap();
+            let ek_r = self.keys.encrypt(&r).unwrap();
 
-    //         // Зануление младших бит у R
-    //         let gamma = Self::msb(&ek_r, 128);
-    //         let gamma_u8: &[u8; 16] = gamma[..].try_into().unwrap();
+            // Зануление младших бит у ek_r
+            let gamma = Self::msb(&ek_r, s);
+            let gamma_u8: &[u8; 16] = gamma[..].try_into().unwrap();
 
-    //         // Сколько осталось отработать бит из s на данный момент
-    //         let mut rem_bits = s;
+            // Обработка rem_bit = s
+            let mut byte_m:u8;      // Байт message
+            let mut byte_ctr:u8;    // Байт Ctr
 
-    //         // Обработка rem_bit = s
-    //         let mut c = 0;      // C_i
-    //         let mut byte_m:u8;      // Байт message
-    //         let mut byte_ctr:u8;    // Байт Ctr
+            // Пока остались биты на обработку
+            while rem_bits != 0 
+            {
+                if cur_byte >= message.len() {break;}
 
-    //         // Пока остались биты на обработку
-    //         while rem_bits != 0 
-    //         {
-    //             if cur_byte >= message.len() {break;}
-
-    //             // Если message[cur_byte] = 0101 1100 и cur_idx = 3
-    //             byte_m = message[cur_byte] << cur_idx; // Зануление старших обработанных битов даст byte = 1110 0000
-    //             byte_m = byte_m >> cur_idx;            // Возврат к исходному положению не зануленных бит byte = 0001 1100
+                // Если message[cur_byte] = 0101 1100 и cur_idx = 3
+                byte_m = message[cur_byte] >> cur_idx; // Зануление младших обработанных битов даст byte = 0000 1011
+                byte_m = byte_m << cur_idx;            // Возврат к исходному положению не зануленных бит byte = 0101 1000
                 
-    //             // Часть ctr
-    //             byte_ctr = gamma_u8[cur_byte % 16] << cur_idx;
-    //             byte_ctr = byte_ctr >> cur_idx; 
+                // Часть ctr
+                byte_ctr = gamma_u8[cur_byte % 16] >> cur_idx;
+                byte_ctr = byte_ctr << cur_idx; 
 
-    //             // Если операция выполняется на нескольких байтах
-    //             if (cur_idx + rem_bits) >= 8
-    //             {
-    //                 rem_bits = rem_bits - (8 - cur_idx);
+                // Если операция выполняется на нескольких байтах
+                if (cur_idx + rem_bits) > 8
+                {
+                    rem_bits = rem_bits - (8 - cur_idx);
 
-    //                 // Переход к следующему байту
-    //                 cur_idx = 0;
-    //                 cur_byte += 1;
+                    // Переход к следующему байту
+                    cur_idx = 0;
+                    cur_byte += 1;
                     
-    //                 c = c | (byte_m ^ byte_ctr);  // Суммирование по модулю 2 (Если s < 8, то добавляем части предыдущего результата)
-    //                 res.push(c);                  // Помещение результата в массив
-    //                 c = 0;                        // Обнуление результата нового байта
-    //             }
-    //             // Если операция выполняется на одном байте
-    //             else {
-    //                 // Если message[cur_byte] = 0001 1100 и cur_idx = 3 и s = 2 
-    //                 byte_m = byte_m >> (8 - (cur_idx + rem_bits));  // Зануление младших бит, которые обрабатывать не надо, даст byte = 0000 0011
-    //                 byte_m = byte_m << (8 - (cur_idx + rem_bits));  // Возврат к исходному положению не зануленных бит yte = 0001 1000
+                    c = c | (byte_m ^ byte_ctr);  // Суммирование по модулю 2
+                    res.push(c);                  // Помещение результата в массив
+                    c = 0;                        // Обнуление результата нового байта
+                }
+                // Если операция выполняется на одном байте
+                else {
+                    // Если message[cur_byte] = 0001 1100 и cur_idx = 3 и s = 2 
+                    byte_m = byte_m >> cur_idx;                    // Зануление младших обработанных битов byte = 0000 0011
+                    byte_m = byte_m << cur_idx;                    // Возврат к исходному положению byte = 0001 1000
+                    byte_m = byte_m << (8 - (cur_idx + rem_bits)); // Зануление старших бит, которые обрабатывать не надо, даст byte = 1100 0000
+                    byte_m = byte_m >> (8 - (cur_idx + rem_bits)); // Возврат к исходному положению byte = 0001 100
 
-    //                 // Часть ctr
-    //                 byte_ctr = byte_ctr >> (8 - (cur_idx + rem_bits));
-    //                 byte_ctr = byte_ctr << (8 - (cur_idx + rem_bits)); 
+                    // Часть ctr
+                    byte_ctr = byte_ctr >> cur_idx;
+                    byte_ctr = byte_ctr << cur_idx;
+                    byte_ctr = byte_ctr << (8 - (cur_idx + rem_bits));
+                    byte_ctr = byte_ctr >> (8 - (cur_idx + rem_bits)); 
                     
-    //                 cur_idx += rem_bits;
-    //                 rem_bits -= rem_bits;
+                    c = c | (byte_m ^ byte_ctr);  // Суммирование по модулю 2 (Если s < 8, то добавляем части предыдущего результата)
 
-    //                 c = c | (byte_m ^ byte_ctr);  // Суммирование по модулю 2 (Если s < 8, то добавляем части предыдущего результата)
-    //             }
-    //         }
+                    // Сдвиг индекса обрабатываемого бита
+                    if (cur_idx + rem_bits) == 8 
+                    {
+                        // Если полностью обработан текущий байт
+                        cur_byte += 1; 
+                        cur_idx = 0;
 
-    //         r = 
-    //     }
-    // }
+                        res.push(c);
+                        c = 0;
+                    } 
+                    else {
+                        cur_idx += rem_bits;
+                    };
+
+                    rem_bits -= rem_bits;
+                }
+            }
+
+            // ДОБАВИТЬ R = LSB_[m-n](R) || ek_r
+            r = vec![];
+        }
+
+    }
 
 }
 
 #[cfg(test)]
 mod tests
 {
-    use crate::algorithms::{hex_to_bytes, to_hex, print_bytes};
+    use crate::algorithms::{hex_to_bytes};
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 

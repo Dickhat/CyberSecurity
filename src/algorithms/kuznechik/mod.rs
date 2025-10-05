@@ -1,6 +1,6 @@
-use std::{fs::File, io::{BufRead, BufReader, Write}, path::{Path, PathBuf}, vec};
+use std::{fs::File, io::{BufRead, BufReader, Write}, path::PathBuf, vec};
 
-use crate::algorithms::{hex_to_bytes, kuznechik::consts::{KUZ_PI, KUZ_PI_INV, L_VEC}, to_hex, print_bytes};
+use crate::algorithms::{hex_to_bytes, kuznechik::consts::{KUZ_PI, KUZ_PI_INV, L_VEC}, to_hex};
 
 pub mod consts;
 

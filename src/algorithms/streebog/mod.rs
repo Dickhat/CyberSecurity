@@ -1,6 +1,5 @@
 pub mod consts;
-use crate::algorithms::hex_to_bytes;
-use crate::algorithms::{sum_mod2_wo, sum_mod2, print_bytes};
+use crate::algorithms::{sum_mod2_wo, sum_mod2}; // add print_bytes if you want println to work (commented out)!
 
 // Получить мощность сообщения в формате [u8; 64]
 fn power_to_u64(rem: u128) -> [u8; 64]
