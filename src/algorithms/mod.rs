@@ -1,3 +1,5 @@
+use rand::Rng;
+
 pub mod rsa;
 pub mod streebog;
 pub mod kuznechik;
@@ -9,6 +11,12 @@ pub fn print_bytes(bytes: &[u8]) {
     for b in bytes[..].iter().rev() {
         print!("{:02x}", b);
     }
+}
+
+///  Генерирует случайный вектор байтов, где число байтов size
+pub fn random_vec(size: usize) -> Vec<u8> {
+    let mut rng = rand::thread_rng();
+    (0..size).map(|_| rng.gen::<u8>()).collect()
 }
 
 // Перевод шестнацетиричных чисел в байты (Исходное представление big Endian)
