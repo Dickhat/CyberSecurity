@@ -388,11 +388,11 @@ impl CipherModes {
         r.copy_from_slice(iv);
 
         let mut res:Vec<u8> = vec![];
-        let mut padded_chunk = vec![];
+        let mut padded_chunk;
 
         for chunk in message.chunks(16)
         {
-            let mut c: [u8; 16] = [0; 16];
+            let c: [u8; 16];
 
             // Если нужен padding
             if chunk.len() != 16 {
@@ -437,10 +437,8 @@ impl CipherModes {
 
         for chunk in message.chunks(16)
         {
-            let mut p = vec![];
-
             // P = D_k(C) sum_mod_2 MSB_n(R)
-            p = sum_mod2_slice(&self.keys.decrypt(chunk).unwrap(), &r[(m - 16)..]).unwrap();
+            let p = sum_mod2_slice(&self.keys.decrypt(chunk).unwrap(), &r[(m - 16)..]).unwrap();
 
             // Младшие биты регистра R
             let lsb_r = r[..(m - 16)].to_vec();
