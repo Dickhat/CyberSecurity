@@ -1,4 +1,6 @@
-use super::{kuznechik::Kuznechik, sum_mod2_wo};
+use std::vec;
+
+use super::{kuznechik::Kuznechik, sum_mod2_wo, sum_mod2_slice};
 
 pub struct CipherModes
 {
@@ -252,7 +254,7 @@ impl CipherModes {
     /// message, представленным срезом байтов, параметром s, представляющем число бит шифрования,
     /// параметром m = 128*z, где z - целое >= 1, а также IV - инициализирующим вектором длины m,
     /// который для каждого нового сообщения формируется новый.
-    pub fn ofb_encrypt(&self, message: &[u8], s: usize, z:usize, iv: & Vec<u8>) -> Vec<u8>
+    pub fn ofb_crypt(&self, message: &[u8], s: usize, z:usize, iv: & Vec<u8>) -> Vec<u8>
     {
         // s - число бит, которые будут шифроваться
         if s < 1 || s > 128
@@ -363,6 +365,98 @@ impl CipherModes {
             // R = LSB_[m-n](R) || ek_r
             r[16..].copy_from_slice(&lsb_r);
             r[..16].copy_from_slice(&ek_r);
+        }
+
+        res
+    }
+
+    /// Режим простой замены с зацеплением (Cipher Block Chaining) с входным сообщением
+    /// message, представленным срезом байтов, параметром m = 128*z, где z - целое >= 1,
+    /// а также IV - инициализирующим вектором длины m, который для каждого нового сообщения формируется новый.
+    /// Данная функция производит шифрование, при чем если message не кратно 128 битам, то происходит
+    /// дополнение с помощью padding_proc2.
+    pub fn cbc_encrypt(&self, message: &[u8], z:usize, iv: & Vec<u8>) -> Vec<u8>
+    {
+        // z - целое для определения длины регистра и размера IV
+        if z < 1
+        {
+            panic!("Z must be >= 1");
+        }
+
+        let m = 128*z/8;            // Длина m в байтах
+        let mut r = vec![0u8; m]; // Регистр длины m байт
+        r.copy_from_slice(iv);
+
+        let mut res:Vec<u8> = vec![];
+        let mut padded_chunk = vec![];
+
+        for chunk in message.chunks(16)
+        {
+            let mut c: [u8; 16] = [0; 16];
+
+            // Если нужен padding
+            if chunk.len() != 16 {
+                padded_chunk = Self::padding_proc2(chunk).to_vec();
+                c = self.keys.encrypt(&sum_mod2_slice(&padded_chunk[..],&r[(m - 16)..]).unwrap()).unwrap();
+            }
+            else {
+                c = self.keys.encrypt(&sum_mod2_slice(&chunk[..],&r[(m - 16)..]).unwrap()).unwrap();
+            }
+
+            res.extend_from_slice(&c);
+
+            // Младшие биты регистра R
+            let lsb_r = r[..(m - 16)].to_vec();
+
+            // R = LSB_[m-n](R) || ek_r
+            r[16..].copy_from_slice(&lsb_r);
+            r[..16].copy_from_slice(&c);
+        }
+
+        res
+    }
+
+    /// Режим простой замены с зацеплением (Cipher Block Chaining) с входным сообщением
+    /// message, представленным срезом байтов, параметром m = 128*z, где z - целое >= 1,
+    /// а также IV - инициализирующим вектором длины m, который для каждого нового сообщения формируется новый.
+    /// Данная функция производит расшифрование, при чем если message было дополнено, то происходит удаление
+    /// дополнения padding_proc2.
+    pub fn cbc_decrypt(&self, message: &[u8], z:usize, iv: & Vec<u8>) -> Vec<u8>
+    {
+        // z - целое для определения длины регистра и размера IV
+        if z < 1
+        {
+            panic!("Z must be >= 1");
+        }
+
+        let m = 128*z/8;            // Длина m в байтах
+        let mut r = vec![0u8; m]; // Регистр длины m байт
+        r.copy_from_slice(iv);
+
+        let mut res:Vec<u8> = vec![];
+
+        for chunk in message.chunks(16)
+        {
+            let mut p = vec![];
+
+            // P = D_k(C) sum_mod_2 MSB_n(R)
+            p = sum_mod2_slice(&self.keys.decrypt(chunk).unwrap(), &r[(m - 16)..]).unwrap();
+
+            // Младшие биты регистра R
+            let lsb_r = r[..(m - 16)].to_vec();
+
+            // R = LSB_[m-n](R) || ek_r
+            r[16..].copy_from_slice(&lsb_r);
+            r[..16].copy_from_slice(&chunk);
+
+            res.extend_from_slice(&p);
+        }
+
+        // Убрать padding (padding_proc2) в последних 16 байтах
+        let idx_check_byte = res.len() - 16;
+        while res[idx_check_byte] == 0 || res[idx_check_byte] == 128
+        {
+            res.remove(idx_check_byte);
         }
 
         res
@@ -573,7 +667,7 @@ mod tests
         iv.reverse();
 
         // Шифрование
-        let res = kuz_ecb.ofb_encrypt(&p, 128, 2, &iv);
+        let res = kuz_ecb.ofb_crypt(&p, 128, 2, &iv);
 
         // Правильные значения шифротекста
         let mut c1 = hex_to_bytes("81800a59b1842b24ff1f795e897abd95");
@@ -590,7 +684,7 @@ mod tests
         assert_eq!(res[32..48], c3);
         assert_eq!(res[48..], c4);
 
-        let decrypt_res = kuz_ecb.ofb_encrypt(&res, 128, 2, &iv);
+        let decrypt_res = kuz_ecb.ofb_crypt(&res, 128, 2, &iv);
 
         assert_eq!(decrypt_res[0..16], p1);
         assert_eq!(decrypt_res[16..32], p2);
@@ -605,14 +699,79 @@ mod tests
                 let iv = random_vec(z*16); // Генерация случайного IV
 
                 // Шифрование
-                let res = kuz_ecb.ofb_encrypt(&p, s, z, &iv);
+                let res = kuz_ecb.ofb_crypt(&p, s, z, &iv);
                 
                 // Расшифрование
-                let decrypt_res = kuz_ecb.ofb_encrypt(&res, s, z, &iv);
+                let decrypt_res = kuz_ecb.ofb_crypt(&res, s, z, &iv);
 
                 assert_eq!(decrypt_res, p);
             }
         }
     }
 
+    #[test]
+    fn test_cbc_encrypt_decrypt()
+    {
+        // Все части сообщения разбитые по 128 бит
+        let mut p1 = hex_to_bytes("1122334455667700ffeeddccbbaa9988");
+        p1.reverse();
+        let mut p2 = hex_to_bytes("00112233445566778899aabbcceeff0a");
+        p2.reverse();
+        let mut p3 = hex_to_bytes("112233445566778899aabbcceeff0a00");
+        p3.reverse();
+        let mut p4 = hex_to_bytes("2233445566778899aabbcceeff0a0011");
+        p4.reverse();
+
+        // Формирование последовательного сообщения
+        let mut p: Vec<u8> = vec![];
+        p.extend(&p1);
+        p.extend(&p2);
+        p.extend(&p3);
+        p.extend(&p4);
+
+        // K - начальный ключ для формирования итерационных
+        let mut k = hex_to_bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef");
+        k.reverse();
+
+        // Формирование итерационных ключей
+        let mut kuz_ecb = CipherModes::new();
+        kuz_ecb.keys.keys = Kuznechik::key_generate_with_precopmuted_key(&k);
+
+        let mut iv = hex_to_bytes("1234567890abcef0a1b2c3d4e5f0011223344556677889901213141516171819");
+        iv.reverse();
+
+        let res = kuz_ecb.cbc_encrypt(&p, 2, &iv);
+
+        // Правильные значения шифротекста
+        let mut c1 = hex_to_bytes("689972d4a085fa4d90e52e3d6d7dcc27");
+        c1.reverse();
+        let mut c2 = hex_to_bytes("2826e661b478eca6af1e8e448d5ea5ac");
+        c2.reverse();
+        let mut c3 = hex_to_bytes("fe7babf1e91999e85640e8b0f49d90d0");
+        c3.reverse();
+        let mut c4 = hex_to_bytes("167688065a895c631a2d9a1560b63970");
+        c4.reverse();
+
+        assert_eq!(res[0..16], c1);
+        assert_eq!(res[16..32], c2);
+        assert_eq!(res[32..48], c3);
+        assert_eq!(res[48..], c4);
+
+        let res_decrypt = kuz_ecb.cbc_decrypt(&res, 2, &iv);
+
+        assert_eq!(res_decrypt[0..16], p1);
+        assert_eq!(res_decrypt[16..32], p2);
+        assert_eq!(res_decrypt[32..48], p3);
+        assert_eq!(res_decrypt[48..], p4);
+
+        // Проверка для случайных IV и z
+        for z in 1..4
+        {
+            let iv = random_vec(16 * z);
+            let result_random_iv = kuz_ecb.cbc_encrypt(&p, z, &iv);
+            let result_random_iv_decrypt = kuz_ecb.cbc_decrypt(&result_random_iv, z, &iv);
+
+            assert_eq!(p, result_random_iv_decrypt);
+        }
+    }
 }

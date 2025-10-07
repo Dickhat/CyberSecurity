@@ -13,13 +13,13 @@ pub fn print_bytes(bytes: &[u8]) {
     }
 }
 
-///  Генерирует случайный вектор байтов, где число байтов size
+/// Генерирует случайный вектор байтов, где число байтов size.
 pub fn random_vec(size: usize) -> Vec<u8> {
     let mut rng = rand::thread_rng();
     (0..size).map(|_| rng.gen::<u8>()).collect()
 }
 
-// Перевод шестнацетиричных чисел в байты (Исходное представление big Endian)
+/// Перевод шестнацетиричных чисел в байты (Исходное представление big Endian)
 pub fn hex_to_bytes(hex: &str) -> Vec<u8> {
     (0..hex.len())
         .step_by(2)
@@ -27,7 +27,7 @@ pub fn hex_to_bytes(hex: &str) -> Vec<u8> {
         .collect()
 }
 
-// функция: байты -> строка из hex-символов (data представлена в little endian)
+/// функция: байты -> строка из hex-символов (data представлена в little endian)
 pub fn to_hex(data: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789ABCDEF";
     let mut out = String::with_capacity(data.len() * 2);
@@ -40,7 +40,7 @@ pub fn to_hex(data: &[u8]) -> String {
     out
 }
 
-// Суммирование в кольце Z_2^N
+/// Суммирование в кольце Z_2^N
 pub fn sum_mod2_wo<const N: usize>(left: &[u8; N], right: &[u8; N]) -> [u8; N]
 {
     let mut carry: u16 = 0;
@@ -56,7 +56,7 @@ pub fn sum_mod2_wo<const N: usize>(left: &[u8; N], right: &[u8; N]) -> [u8; N]
     out
 }
 
-// Суммирование по модулю 2
+/// Суммирование по модулю 2
 pub fn sum_mod2<const N: usize>(str1: &[u8; N], str2: &[u8; N]) -> [u8; N]
 {
     let mut res: [u8; N] = [0; N];
@@ -68,4 +68,23 @@ pub fn sum_mod2<const N: usize>(str1: &[u8; N], str2: &[u8; N]) -> [u8; N]
     }
 
     res
+}
+
+/// Суммирование по модулю 2 срезов
+pub fn sum_mod2_slice(str1: &[u8], str2: &[u8]) -> Result<Vec<u8>, String>
+{
+    let mut res = vec![];
+
+    if str1.len() != str2.len()
+    {
+        return Err("Str1 and str2 length not equal".to_string());
+    }
+
+    // Суммирование по модулю 2
+    for index in 0..str1.len()
+    {
+        res.push(str1[index] ^ str2[index]);
+    }
+
+    return Ok(res);
 }
