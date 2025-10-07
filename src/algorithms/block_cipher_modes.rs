@@ -15,7 +15,7 @@ impl CipherModes {
         Self { keys: Kuznechik::new()}
     }
 
-    // ГОСТ Р 34.13-2018 paragraph 4.1.3
+    /// Производит дополнение по алгоритму ГОСТ Р 34.13-2018 paragraph 4.1.3
     fn padding_proc2(message: &[u8]) -> [u8; 16]
     {
         let mut padded_message: [u8; 16] = [0; 16];
