@@ -26,6 +26,63 @@ impl CipherModes {
         padded_message
     }
 
+    // 5.2.1 (3)
+    fn add_ctr(ctr: &[u8; 16]) -> [u8; 16]
+    {
+        let mut one: [u8; 16] = [0; 16];
+        one[0] = 1;
+
+        sum_mod2_wo(ctr, &one)
+    }
+
+    // Взятие s старших бит из str_a
+    fn msb(str_a: &[u8], s: usize) -> Vec<u8>
+    {
+        let mut res = str_a.to_vec();
+        let len_res = res.len()*8;
+
+        // Сколько бит и байт занулить
+        let byte_count = (len_res - s)/8;
+        let bit_count = (len_res - s)%8;
+
+        if bit_count != 0 {
+            // Маска для оставления только старших bit_idx бит
+            let mask: u8 = 0xFF << bit_count;
+            res[byte_count] &= mask;
+        }
+
+        // Обнуляем все байты после нужного
+        for i in 0..byte_count {
+            res[i] = 0;
+        }
+
+        res
+    }
+
+    // Взятие s младших бит из str_a
+    fn lsb(str_a: &[u8], s: usize) -> Vec<u8>
+    {
+        let mut res = str_a.to_vec();
+
+        if res.len() == s/8 {return res;}
+
+        // С какого бита и байта занулять
+        let byte_count = s/8;
+        let bit_count = s%8;
+
+        // Маска для оставления только младших bit_count бит
+        let mask: u8 = if bit_count == 0 {0x00} else {0xFF >> (8 - bit_count)};
+        res[byte_count] &= mask;
+
+        // Обнуляем все байты после нужного
+        for i in (byte_count + 1)..res.len() {
+            res[i] = 0;
+        }
+
+        res
+    }
+
+
     /// Режим простой замены (Electronic Codebook). При длине сообщения < 128
     /// до шифрования осуществляет padding по схеме ГОСТ Р 34.13-2018 paragraph 4.1.3
     pub fn ecb_encrypt(&self, message: &[u8]) -> Vec<[u8; 16]>
@@ -86,65 +143,9 @@ impl CipherModes {
         encrypted_message
     }
 
-    // 5.2.1 (3)
-    fn add_ctr(ctr: &[u8; 16]) -> [u8; 16]
-    {
-        let mut one: [u8; 16] = [0; 16];
-        one[0] = 1;
-
-        sum_mod2_wo(ctr, &one)
-    }
-
-    // Взятие s старших бит из str_a
-    fn msb(str_a: &[u8], s: usize) -> Vec<u8>
-    {
-        let mut res = str_a.to_vec();
-        let len_res = res.len()*8;
-
-        // Сколько бит и байт занулить
-        let byte_count = (len_res - s)/8;
-        let bit_count = (len_res - s)%8;
-
-        if bit_count != 0 {
-            // Маска для оставления только старших bit_idx бит
-            let mask: u8 = 0xFF << bit_count;
-            res[byte_count] &= mask;
-        }
-
-        // Обнуляем все байты после нужного
-        for i in 0..byte_count {
-            res[i] = 0;
-        }
-
-        res
-    }
-
-    // Взятие s младших бит из str_a
-    fn lsb(str_a: &[u8], s: usize) -> Vec<u8>
-    {
-        let mut res = str_a.to_vec();
-
-        if res.len() == s/8 {return res;}
-
-        // С какого бита и байта занулять
-        let byte_count = s/8;
-        let bit_count = s%8;
-
-        // Маска для оставления только младших bit_count бит
-        let mask: u8 = if bit_count == 0 {0x00} else {0xFF >> (8 - bit_count)};
-        res[byte_count] &= mask;
-
-        // Обнуляем все байты после нужного
-        for i in (byte_count + 1)..res.len() {
-            res[i] = 0;
-        }
-
-        res
-    }
-
     /// Режим гаммирования (Counter) с входным сообщением message, представленным срезом байтов,
     /// параметром s в диапазоне [1; 128], представляющем число бит шифрования, и IV - инициализирующим вектором,
-    /// который для каждого нового сообщения формируется новый. С помощью данного метода
+    /// который для каждого нового сообщения должен формироваться новый. С помощью данного метода
     /// можно прозводить как шифрование сообщений, так и расшифрование.
     pub fn ctr_crypt(&self, message: &[u8], s: usize, iv: &[u8; 8]) -> Vec<u8>
     {
@@ -253,7 +254,8 @@ impl CipherModes {
     /// Режим гаммирования с обратной связью по выходу (Output Feedback) с входным сообщением
     /// message, представленным срезом байтов, параметром s, представляющем число бит шифрования,
     /// параметром m = 128*z, где z - целое >= 1, а также IV - инициализирующим вектором длины m,
-    /// который для каждого нового сообщения формируется новый.
+    /// который для каждого нового сообщения должен формироваться новый. С помощью данного метода
+    /// можно прозводить как шифрование сообщений, так и расшифрование.
     pub fn ofb_crypt(&self, message: &[u8], s: usize, z:usize, iv: & Vec<u8>) -> Vec<u8>
     {
         // s - число бит, которые будут шифроваться
@@ -372,7 +374,7 @@ impl CipherModes {
 
     /// Режим простой замены с зацеплением (Cipher Block Chaining) с входным сообщением
     /// message, представленным срезом байтов, параметром m = 128*z, где z - целое >= 1,
-    /// а также IV - инициализирующим вектором длины m, который для каждого нового сообщения формируется новый.
+    /// а также IV - инициализирующим вектором длины m, который для каждого нового сообщения должен формироваться новый.
     /// Данная функция производит шифрование, при чем если message не кратно 128 битам, то происходит
     /// дополнение с помощью padding_proc2.
     pub fn cbc_encrypt(&self, message: &[u8], z:usize, iv: & Vec<u8>) -> Vec<u8>
@@ -418,7 +420,7 @@ impl CipherModes {
 
     /// Режим простой замены с зацеплением (Cipher Block Chaining) с входным сообщением
     /// message, представленным срезом байтов, параметром m = 128*z, где z - целое >= 1,
-    /// а также IV - инициализирующим вектором длины m, который для каждого нового сообщения формируется новый.
+    /// а также IV - инициализирующим вектором длины m, который для каждого нового сообщения должен формироваться новый.
     /// Данная функция производит расшифрование, при чем если message было дополнено, то происходит удаление
     /// дополнения padding_proc2.
     pub fn cbc_decrypt(&self, message: &[u8], z:usize, iv: & Vec<u8>) -> Vec<u8>
@@ -455,6 +457,347 @@ impl CipherModes {
         while res[idx_check_byte] == 0 || res[idx_check_byte] == 128
         {
             res.remove(idx_check_byte);
+        }
+
+        res
+    }
+
+    /// Режим гаммирования с обратной связью по шифртексту (Cipher Feedback) с входным сообщением
+    /// message, представленным срезом байтов, параметром s, представляющем число бит шифрования,
+    /// параметром m = 128*z, где z - целое >= 1, а также IV - инициализирующим вектором длины m,
+    /// который для каждого нового сообщения должен формироваться новый. Данный метод используется
+    /// для шифрования исходного сообщения.
+    pub fn cfb_encrypt(&self, message: &[u8], s: usize, z:usize, iv: & Vec<u8>) -> Vec<u8>
+    {
+        // s - число бит, которые будут шифроваться
+        if s < 1 || s > 128
+        {
+            panic!("S must be <= 128");
+        }
+
+        // z - целое для определения длины регистра и размера IV
+        if z < 1
+        {
+            panic!("Z must be >= 1");
+        }
+
+        let m = 128*z/8;            // Длина m в байтах
+        let mut r = vec![0u8; m]; // Регистр длины m байт
+
+        r.copy_from_slice(iv);
+
+        let mut res:Vec<u8> = vec![];
+
+        let mut c = 0;              // Байт результата
+        let mut cur_idx = 0;     // Текущий обрабатываемый бит
+        let mut cur_byte = 0;    // Текущий обрабатываемый байт
+
+        // Шифрование сообщения блоками длины s со сдвигом регистра R
+        loop
+        {
+            // Проверка, что все биты обработаны
+            if (cur_idx + cur_byte*8) >= message.len()*8 {break;}
+
+            let mut cipher_text_c:Vec<u8> = vec![]; // Используется для занесения в регистр R значения C
+
+            // Сколько осталось отработать бит из s на данный момент
+            let mut rem_bits = s;
+
+            // Передача старшей части регистра R
+            let ek_r = self.keys.encrypt(&r[(m - 16)..]).unwrap();
+
+            // Зануление младших бит у ek_r (T_s)
+            let gamma = Self::msb(&ek_r, s);
+            let gamma_u8: &[u8; 16] = gamma[..].try_into().unwrap();
+
+            // Обработка rem_bit = s
+            let mut byte_m:u8;      // Байт message
+            let mut byte_ctr:u8;    // Байт Ctr
+
+            // Пока остались биты на обработку
+            while rem_bits != 0 
+            {
+                if cur_byte >= message.len() {break;}
+
+                // Если message[cur_byte] = 0101 1100 и cur_idx = 3
+                byte_m = message[cur_byte] >> cur_idx; // Зануление младших обработанных битов даст byte = 0000 1011
+                byte_m = byte_m << cur_idx;            // Возврат к исходному положению не зануленных бит byte = 0101 1000
+                
+                // Часть ctr
+                byte_ctr = gamma_u8[cur_byte % 16] >> cur_idx;
+                byte_ctr = byte_ctr << cur_idx; 
+
+                // Если операция выполняется на нескольких байтах
+                if (cur_idx + rem_bits) > 8
+                {
+                    rem_bits = rem_bits - (8 - cur_idx);
+
+                    // Переход к следующему байту
+                    cur_idx = 0;
+                    cur_byte += 1;
+                    
+                    c = c | (byte_m ^ byte_ctr);  // Суммирование по модулю 2
+                    cipher_text_c.push(c);        // Для сдвига регистра R и занесения в сдвинутые биты C
+                    res.push(c);                  // Помещение результата в массив
+                    c = 0;                        // Обнуление результата нового байта
+                }
+                // Если операция выполняется на одном байте
+                else {
+                    // Если message[cur_byte] = 0001 1100 и cur_idx = 3 и s = 2 
+                    byte_m = byte_m >> cur_idx;                    // Зануление младших обработанных битов byte = 0000 0011
+                    byte_m = byte_m << cur_idx;                    // Возврат к исходному положению byte = 0001 1000
+                    byte_m = byte_m << (8 - (cur_idx + rem_bits)); // Зануление старших бит, которые обрабатывать не надо, даст byte = 1100 0000
+                    byte_m = byte_m >> (8 - (cur_idx + rem_bits)); // Возврат к исходному положению byte = 0001 100
+
+                    // Часть ctr
+                    byte_ctr = byte_ctr >> cur_idx;
+                    byte_ctr = byte_ctr << cur_idx;
+                    byte_ctr = byte_ctr << (8 - (cur_idx + rem_bits));
+                    byte_ctr = byte_ctr >> (8 - (cur_idx + rem_bits)); 
+                    
+                    c = c | (byte_m ^ byte_ctr);  // Суммирование по модулю 2 (Если s < 8, то добавляем части предыдущего результата)
+
+                    // Сдвиг индекса обрабатываемого бита
+                    if (cur_idx + rem_bits) == 8 
+                    {
+                        // Если полностью обработан текущий байт
+                        cur_byte += 1; 
+                        cur_idx = 0;
+
+                        cipher_text_c.push(c);        // Для сдвига регистра R и занесения в сдвинутые биты C
+                        res.push(c);
+                        c = 0;
+                    } 
+                    else {
+                        cur_idx += rem_bits;
+                    };
+
+                    rem_bits -= rem_bits;
+                }
+            }
+
+            // Сколько байтов и битов сдвиг s
+            let byte_shifted = s / 8;
+            let bit_shifted = s % 8;
+            let len = r.len();
+
+            // Сдвиг регистра R на s бит
+            for idx in 0..r.len()
+            {
+                // Обработка оставшихся байтов, которым нельзя присвоить идущие раньше их
+                if (len as i32) - 1 - (idx as i32) - (byte_shifted as i32) < 0
+                {
+                    if bit_shifted != 0 {r[len - 1 - idx] = r[len - 1 - idx] << bit_shifted;}
+
+                    // Зануление оставшихся байт
+                    for i in 0..byte_shifted
+                    {
+                        r[i] = 0u8;
+                    }
+                    
+                    break;
+                }
+
+                // Сдвиг не соседей
+                if bit_shifted != 0 && byte_shifted != 0
+                {
+                    r[idx + byte_shifted] = (r[idx + byte_shifted] << bit_shifted) | (r[idx] >> (8 - bit_shifted));
+                }
+                // Сдвиг соседей
+                else if bit_shifted != 0 && byte_shifted == 0
+                {
+                    if idx == 0
+                    {
+                        r[idx] = r[idx] << bit_shifted;
+                    }
+                    else {
+                        r[idx] = (r[idx] << bit_shifted) | (r[idx - 1] >> (8 - bit_shifted));
+                    }
+                }
+                // Только перенос байтов
+                else {
+                    r[idx + byte_shifted] = r[idx];
+                }
+            } 
+
+            // Занесение C в регистр R
+            for elem in 0..cipher_text_c.len()
+            {
+                r[elem] = r[elem] | cipher_text_c[elem];
+            }
+        }
+
+        res
+    }
+
+    /// Режим гаммирования с обратной связью по шифртексту (Cipher Feedback) с входным сообщением
+    /// message, представленным срезом байтов, параметром s, представляющем число бит шифрования,
+    /// параметром m = 128*z, где z - целое >= 1, а также IV - инициализирующим вектором длины m,
+    /// который для каждого нового сообщения должен формироваться новый. Данный метод используется для 
+    /// расшифрования шифротекса.
+    pub fn cfb_decrypt(&self, message: &[u8], s: usize, z:usize, iv: & Vec<u8>) -> Vec<u8>
+    {
+        // s - число бит, которые будут шифроваться
+        if s < 1 || s > 128
+        {
+            panic!("S must be <= 128");
+        }
+
+        // z - целое для определения длины регистра и размера IV
+        if z < 1
+        {
+            panic!("Z must be >= 1");
+        }
+
+        let m = 128*z/8;            // Длина m в байтах
+        let mut r = vec![0u8; m]; // Регистр длины m байт
+
+        r.copy_from_slice(iv);
+
+        let mut res:Vec<u8> = vec![];
+
+        let mut c = 0;              // Байт результата
+        let mut p = 0;             // Исходный шифротекст
+        let mut cur_idx = 0;     // Текущий обрабатываемый бит
+        let mut cur_byte = 0;    // Текущий обрабатываемый байт
+
+        // Шифрование сообщения блоками длины s со сдвигом регистра R
+        loop
+        {
+            // Проверка, что все биты обработаны
+            if (cur_idx + cur_byte*8) >= message.len()*8 {break;}
+
+            let mut cipher_text_c:Vec<u8> = vec![]; // Используется для занесения в регистр R значения C
+
+            // Сколько осталось отработать бит из s на данный момент
+            let mut rem_bits = s;
+
+            // Передача старшей части регистра R
+            let ek_r = self.keys.encrypt(&r[(m - 16)..]).unwrap();
+
+            // Зануление младших бит у ek_r (T_s)
+            let gamma = Self::msb(&ek_r, s);
+            let gamma_u8: &[u8; 16] = gamma[..].try_into().unwrap();
+
+            // Обработка rem_bit = s
+            let mut byte_m:u8;      // Байт message
+            let mut byte_ctr:u8;    // Байт Ctr
+
+            // Пока остались биты на обработку
+            while rem_bits != 0 
+            {
+                if cur_byte >= message.len() {break;}
+
+                // Если message[cur_byte] = 0101 1100 и cur_idx = 3
+                byte_m = message[cur_byte] >> cur_idx; // Зануление младших обработанных битов даст byte = 0000 1011
+                byte_m = byte_m << cur_idx;            // Возврат к исходному положению не зануленных бит byte = 0101 1000
+                
+                // Часть ctr
+                byte_ctr = gamma_u8[cur_byte % 16] >> cur_idx;
+                byte_ctr = byte_ctr << cur_idx; 
+
+                // Если операция выполняется на нескольких байтах
+                if (cur_idx + rem_bits) > 8
+                {
+                    rem_bits = rem_bits - (8 - cur_idx);
+
+                    // Переход к следующему байту
+                    cur_idx = 0;
+                    cur_byte += 1;
+                    
+                    c = c | (byte_m ^ byte_ctr);  // Суммирование по модулю 2
+                    p = p | byte_m;
+                    cipher_text_c.push(p);        // Для сдвига регистра R и занесения в сдвинутые биты C
+                    res.push(c);                  // Помещение результата в массив
+                    c = 0;                        // Обнуление результата нового байта
+                    p = 0;
+                }
+                // Если операция выполняется на одном байте
+                else {
+                    // Если message[cur_byte] = 0001 1100 и cur_idx = 3 и s = 2 
+                    byte_m = byte_m >> cur_idx;                    // Зануление младших обработанных битов byte = 0000 0011
+                    byte_m = byte_m << cur_idx;                    // Возврат к исходному положению byte = 0001 1000
+                    byte_m = byte_m << (8 - (cur_idx + rem_bits)); // Зануление старших бит, которые обрабатывать не надо, даст byte = 1100 0000
+                    byte_m = byte_m >> (8 - (cur_idx + rem_bits)); // Возврат к исходному положению byte = 0001 100
+
+                    // Часть ctr
+                    byte_ctr = byte_ctr >> cur_idx;
+                    byte_ctr = byte_ctr << cur_idx;
+                    byte_ctr = byte_ctr << (8 - (cur_idx + rem_bits));
+                    byte_ctr = byte_ctr >> (8 - (cur_idx + rem_bits)); 
+                    
+                    p = p | byte_m;
+                    c = c | (byte_m ^ byte_ctr);  // Суммирование по модулю 2 (Если s < 8, то добавляем части предыдущего результата)
+
+                    // Сдвиг индекса обрабатываемого бита
+                    if (cur_idx + rem_bits) == 8 
+                    {
+                        // Если полностью обработан текущий байт
+                        cur_byte += 1; 
+                        cur_idx = 0;
+
+                        cipher_text_c.push(p);        // Для сдвига регистра R и занесения в сдвинутые биты C
+                        res.push(c);
+                        c = 0;
+                        p = 0;
+                    } 
+                    else {
+                        cur_idx += rem_bits;
+                    };
+
+                    rem_bits -= rem_bits;
+                }
+            }
+
+            // Сколько байтов и битов сдвиг s
+            let byte_shifted = s / 8;
+            let bit_shifted = s % 8;
+            let len = r.len();
+
+            // Сдвиг регистра R на s бит
+            for idx in 0..r.len()
+            {
+                // Обработка оставшихся байтов, которым нельзя присвоить идущие раньше их
+                if (len as i32) - 1 - (idx as i32) - (byte_shifted as i32) < 0
+                {
+                    if bit_shifted != 0 {r[len - 1 - idx] = r[len - 1 - idx] << bit_shifted;}
+
+                    // Зануление оставшихся байт
+                    for i in 0..byte_shifted
+                    {
+                        r[i] = 0u8;
+                    }
+                    
+                    break;
+                }
+
+                // Сдвиг не соседей
+                if bit_shifted != 0 && byte_shifted != 0
+                {
+                    r[idx + byte_shifted] = (r[idx + byte_shifted] << bit_shifted) | (r[idx] >> (8 - bit_shifted));
+                }
+                // Сдвиг соседей
+                else if bit_shifted != 0 && byte_shifted == 0
+                {
+                    if idx == 0
+                    {
+                        r[idx] = r[idx] << bit_shifted;
+                    }
+                    else {
+                        r[idx] = (r[idx] << bit_shifted) | (r[idx - 1] >> (8 - bit_shifted));
+                    }
+                }
+                // Только перенос байтов
+                else {
+                    r[idx + byte_shifted] = r[idx];
+                }
+            } 
+
+            // Занесение C в регистр R
+            for elem in 0..cipher_text_c.len()
+            {
+                r[elem] = r[elem] | cipher_text_c[elem];
+            }
         }
 
         res
@@ -770,6 +1113,79 @@ mod tests
             let result_random_iv_decrypt = kuz_ecb.cbc_decrypt(&result_random_iv, z, &iv);
 
             assert_eq!(p, result_random_iv_decrypt);
+        }
+    }
+
+    #[test]
+    fn test_cfb_encrypt_decrypt()
+    {
+        // Все части сообщения разбитые по 128 бит
+        let mut p1 = hex_to_bytes("1122334455667700ffeeddccbbaa9988");
+        p1.reverse();
+        let mut p2 = hex_to_bytes("00112233445566778899aabbcceeff0a");
+        p2.reverse();
+        let mut p3 = hex_to_bytes("112233445566778899aabbcceeff0a00");
+        p3.reverse();
+        let mut p4 = hex_to_bytes("2233445566778899aabbcceeff0a0011");
+        p4.reverse();
+
+        // Формирование последовательного сообщения
+        let mut p: Vec<u8> = vec![];
+        p.extend(&p1);
+        p.extend(&p2);
+        p.extend(&p3);
+        p.extend(&p4);
+
+        // K - начальный ключ для формирования итерационных
+        let mut k = hex_to_bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef");
+        k.reverse();
+
+        // Формирование итерационных ключей
+        let mut kuz_ecb = CipherModes::new();
+        kuz_ecb.keys.keys = Kuznechik::key_generate_with_precopmuted_key(&k);
+
+        let mut iv = hex_to_bytes("1234567890abcef0a1b2c3d4e5f0011223344556677889901213141516171819");
+        iv.reverse();
+
+        let res_encrypt = kuz_ecb.cfb_encrypt(&p, 128, 2, &iv);
+
+        // Правильные значения шифротекста
+        let mut c1 = hex_to_bytes("81800a59b1842b24ff1f795e897abd95");
+        c1.reverse();
+        let mut c2 = hex_to_bytes("ed5b47a7048cfab48fb521369d9326bf");
+        c2.reverse();
+        let mut c3 = hex_to_bytes("79f2a8eb5cc68d38842d264e97a238b5");
+        c3.reverse();
+        let mut c4 = hex_to_bytes("4ffebecd4e922de6c75bd9dd44fbf4d1");
+        c4.reverse();
+
+        assert_eq!(res_encrypt[0..16], c1);
+        assert_eq!(res_encrypt[16..32], c2);
+        assert_eq!(res_encrypt[32..48], c3);
+        assert_eq!(res_encrypt[48..], c4);
+
+        let res_decrypt = kuz_ecb.cfb_decrypt(&res_encrypt, 128, 2, &iv);
+
+        assert_eq!(res_decrypt[0..16], p1);
+        assert_eq!(res_decrypt[16..32], p2);
+        assert_eq!(res_decrypt[32..48], p3);
+        assert_eq!(res_decrypt[48..], p4);
+
+        // Тестирование для разных параметров s, z, iv
+        for s in 1..128
+        {
+            for z in 1..4
+            {
+                let iv = random_vec(z*16); // Генерация случайного IV
+
+                // Шифрование
+                let res = kuz_ecb.cfb_encrypt(&p, s, z, &iv);
+                
+                // Расшифрование
+                let decrypt_res = kuz_ecb.cfb_decrypt(&res, s, z, &iv);
+
+                assert_eq!(decrypt_res, p);
+            }
         }
     }
 }
