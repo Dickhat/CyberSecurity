@@ -179,27 +179,27 @@ impl CipherModes {
     }
 
     // Взятие s младших бит из str_a
-    fn lsb(str_a: &[u8], s: usize) -> Vec<u8>
-    {
-        let mut res = str_a.to_vec();
+    // fn lsb(str_a: &[u8], s: usize) -> Vec<u8>
+    // {
+    //     let mut res = str_a.to_vec();
 
-        if res.len() == s/8 {return res;}
+    //     if res.len() == s/8 {return res;}
 
-        // С какого бита и байта занулять
-        let byte_count = s/8;
-        let bit_count = s%8;
+    //     // С какого бита и байта занулять
+    //     let byte_count = s/8;
+    //     let bit_count = s%8;
 
-        // Маска для оставления только младших bit_count бит
-        let mask: u8 = if bit_count == 0 {0x00} else {0xFF >> (8 - bit_count)};
-        res[byte_count] &= mask;
+    //     // Маска для оставления только младших bit_count бит
+    //     let mask: u8 = if bit_count == 0 {0x00} else {0xFF >> (8 - bit_count)};
+    //     res[byte_count] &= mask;
 
-        // Обнуляем все байты после нужного
-        for i in (byte_count + 1)..res.len() {
-            res[i] = 0;
-        }
+    //     // Обнуляем все байты после нужного
+    //     for i in (byte_count + 1)..res.len() {
+    //         res[i] = 0;
+    //     }
 
-        res
-    }
+    //     res
+    // }
 
 
     /// Режим простой замены (Electronic Codebook). При длине сообщения < 128
