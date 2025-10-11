@@ -1,10 +1,129 @@
 use std::vec;
 
-use super::{kuznechik::Kuznechik, sum_mod2_wo, sum_mod2_slice};
+use super::{kuznechik::Kuznechik, sum_mod2, sum_mod2_wo, sum_mod2_slice};
+
+pub struct CMAC
+{
+    k: Vec<u8>,
+    k1: [u8; 16],
+    k2: [u8; 16],
+}
 
 pub struct CipherModes
 {
-    keys: Kuznechik,
+    keys: Kuznechik
+}
+
+impl CMAC {
+    /// Генерация вспомогательных ключей K, K1, K2 для CMAC
+    pub fn new() -> Result<Self, String>
+    {
+        let keys = Kuznechik::new();
+        let zeroes: [u8; 16] = [0; 16];
+
+        // В_128= 0^128 | 10000111
+        let mut b: [u8; 16] = [0; 16];
+        b[0] = 0b1000_0111;
+        
+        let r = keys.encrypt(&zeroes)?;
+        let mut k1:[u8; 16] = [0; 16];
+        let mut k2:[u8; 16] = [0; 16];
+
+        // R << 1
+        for idx in 0..16
+        {
+            if idx == 15
+            {
+                k1[0] = r[0] << 1;
+            }
+            else {
+                k1[15 - idx] = (r[15 - idx] << 1) | (r[15 - idx - 1] >> 7);
+            }
+        }
+
+        // MSB_1(R) != 0
+        if (r[15] & 0b1000_0000) != 0
+        {
+            k1 = sum_mod2(&k1, &b);
+        }
+
+        // K1 << 1
+        for idx in 0..16
+        {
+            if idx == 15
+            {
+                k2[0] = k1[0] << 1;
+            }
+            else {
+                k2[15 - idx] = (k1[15 - idx] << 1) | (k1[15 - idx - 1] >> 7);
+            }
+        }
+
+        // MSB_1(K1) != 0
+        if (k1[15] & 0b1000_0000) != 0
+        {
+            k2 = sum_mod2(&k2, &b);
+        }
+
+        Ok(Self {k: keys.keys.0, k1, k2})
+    }
+
+    /// Процедура вычисления значения имитовставки (Message Authentication Code algorithm),
+    /// где s - число бит имитовставки, а message является сообщением, для которого рассчитывается имитовставка.
+    pub fn cmac(&self, message: &[u8], s: usize) -> Result<Vec<u8>, String>
+    {
+        // s - число бит, которые будут шифроваться
+        if s < 1 || s > 128
+        {
+            panic!("S must be <= 128");
+        }
+
+        let mut mac:[u8; 16] = [0; 16];
+        let mut c:[u8; 16] = [0; 16];
+        let mut chunk_u8:[u8; 16];
+
+        let kuz_keys: Kuznechik = Kuznechik{keys: Kuznechik::key_generate_with_precopmuted_key(&self.k)}; // Вспомогательные ключи Кузнечика
+
+        // Взятие по 128 бит
+        for (cur_chunk, chunk) in message.chunks(16).enumerate()
+        {
+            chunk_u8 = [0; 16];
+            // Перевод в срез фиксированного размера
+            chunk_u8[0..chunk.len()].copy_from_slice(chunk);
+
+            // Если последние биты message
+            if chunk.len() != 16 || ((cur_chunk + 1) * 16 >= message.len())
+            {   
+                // Дополнение
+                if chunk.len() < 16
+                {
+                    chunk_u8 = CipherModes::padding_proc2(chunk);
+                }
+
+                // P_q + C_(q-1)
+                chunk_u8 = sum_mod2(&chunk_u8, &c);
+
+                // Длина последнего блока 128 бит
+                if chunk.len() == 16 {
+                    chunk_u8 = sum_mod2(&chunk_u8, &self.k1);
+                }
+                else {
+                    chunk_u8 = sum_mod2(&chunk_u8, &self.k2);
+                }  
+
+                mac = Kuznechik::encrypt(&kuz_keys, &chunk_u8)?;
+            } else {
+                // C_i = e_k(P_i + C_(i-1))
+                c = Kuznechik::encrypt(&kuz_keys, &sum_mod2(&chunk_u8, &c))?;
+            }
+        }
+        
+        // Удаление из массива зануленной (обрезанной) части
+        let mut vec_mac = CipherModes::msb(&mac[..], s);
+        for _ in 0..(s/8) {vec_mac.remove(0);}
+        
+        Ok(vec_mac)
+    }
 }
 
 impl CipherModes {
@@ -36,7 +155,7 @@ impl CipherModes {
     }
 
     // Взятие s старших бит из str_a
-    fn msb(str_a: &[u8], s: usize) -> Vec<u8>
+    pub fn msb(str_a: &[u8], s: usize) -> Vec<u8>
     {
         let mut res = str_a.to_vec();
         let len_res = res.len()*8;
@@ -810,6 +929,98 @@ mod tests
     use crate::algorithms::{hex_to_bytes, random_vec};
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
+
+    #[test]
+    fn test_cmac()
+    {
+        let mut r = hex_to_bytes("94bec15e269cf1e506f02b994c0a8ea0");
+        r.reverse();
+
+        // КОД ИЗ ФУНКЦИИ CMAC::generate_keys()
+        // В_128= 0^128 | 10000111
+        let mut b: [u8; 16] = [0; 16];
+        b[0] = 135;
+        
+        let mut k1:[u8; 16] = [0; 16];
+        let mut k2:[u8; 16] = [0; 16];
+
+        // R << 1
+        for idx in 0..16
+        {
+            if idx == 15
+            {
+                k1[0] = r[0] << 1;
+            }
+            else {
+                k1[15 - idx] = (r[15 - idx] << 1) | (r[15 - idx - 1] >> 7);
+            }
+        }
+
+        // MSB_1(R) != 0
+        if (r[15] & 0b1000_0000) != 0
+        {
+            k1 = sum_mod2(&k1, &b);
+        }
+
+        // K1 << 1
+        for idx in 0..16
+        {
+            if idx == 15
+            {
+                k2[0] = k1[0] << 1;
+            }
+            else {
+                k2[15 - idx] = (k1[15 - idx] << 1) | (k1[15 - idx - 1] >> 7);
+            }
+        }
+
+        // MSB_1(K1) != 0
+        if (k1[15] & 0b1000_0000) != 0
+        {
+            k2 = sum_mod2(&k2, &b);
+        }
+
+        let k1_gost = hex_to_bytes("297d82bc4d39e3ca0de0573298151dc7");
+        let k2_gost = hex_to_bytes("52fb05789a73c7941bc0ae65302a3b8e");
+        
+        k1.reverse();
+        k2.reverse();
+
+        assert_eq!(k1.to_vec(), k1_gost);
+        assert_eq!(k2.to_vec(), k2_gost);
+
+        // Все части сообщения разбитые по 128 бит
+        let mut p1 = hex_to_bytes("1122334455667700ffeeddccbbaa9988");
+        p1.reverse();
+        let mut p2 = hex_to_bytes("00112233445566778899aabbcceeff0a");
+        p2.reverse();
+        let mut p3 = hex_to_bytes("112233445566778899aabbcceeff0a00");
+        p3.reverse();
+        let mut p4 = hex_to_bytes("2233445566778899aabbcceeff0a0011");
+        p4.reverse();
+
+        // Формирование последовательного сообщения
+        let mut p: Vec<u8> = vec![];
+        p.extend(&p1);
+        p.extend(&p2);
+        p.extend(&p3);
+        p.extend(&p4);
+
+        // K - начальный ключ для формирования итерационных
+        let mut k = hex_to_bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef");
+        k.reverse();
+        k1.reverse();
+        k2.reverse();
+
+        let cmac = CMAC{k, k1, k2};
+
+        let mut res = cmac.cmac(&p, 64).unwrap();
+        res.reverse();
+
+        let correct_res = hex_to_bytes("336f4d296059fbe3");
+
+        assert_eq!(res, correct_res);
+    }
 
     #[test]
     fn test_ecb_encrypt_decrypt()
