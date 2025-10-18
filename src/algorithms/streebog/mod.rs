@@ -134,7 +134,7 @@ pub fn streebog(message: &[u8], bit_length: u16) -> Result<Vec<u8>, String>
         t512[1] = 2u8;
         
         // Шаг 2.2: получение подвектора длины 512
-        m.copy_from_slice(&message[count512*64..count512 + 64]);
+        m.copy_from_slice(&message[count512*64..(count512*64 + 64)]);
         
         h = gn(&h, &m, &n);                          // Шаг 2.3: h := gn(h, m);
         n = sum_mod2_wo(&n, &t512);      // Шаг 2.4: N := Vec512(lnt512(N) sum_mod2 512);
