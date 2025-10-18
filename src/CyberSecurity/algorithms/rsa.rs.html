@@ -1,531 +1,634 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/algorithms/rsa.rs`."><title>rsa.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-aa0817cf.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="CyberSecurity" data-themes="" data-resource-suffix="" data-rustdoc-version="1.90.0 (1159e78c4 2025-09-14)" data-channel="1.90.0" data-search-js="search-fa3e91e5.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-68b7e25d.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-eebb9057.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">CyberSecurity/algorithms/</div>rsa.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#![allow(unused_imports)]
-<a href=#2 id=2 data-nosnippet>2</a>#![allow(dead_code)]
-<a href=#3 id=3 data-nosnippet>3</a></span><span class="kw">use </span>crypto_bigint::{Constants, Encoding, ConcatMixed};
-<a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span>crypto_bigint::{rand_core::OsRng, Integer, NonZero, Random, Uint, Zero, U256, U512, U1024, I2048, U16384, U32768};
-<a href=#5 id=5 data-nosnippet>5</a><span class="kw">use </span>crypto_primes::{RandomPrimeWithRng};
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/algorithms/rsa.rs`."><title>rsa.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-aa0817cf.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="CyberSecurity" data-themes="" data-resource-suffix="" data-rustdoc-version="1.90.0 (1159e78c4 2025-09-14)" data-channel="1.90.0" data-search-js="search-fa3e91e5.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-68b7e25d.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-eebb9057.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">CyberSecurity/algorithms/</div>rsa.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>crypto_bigint::{Integer, NonZero, U256, U512, U16384, U32768};
+<a href=#2 id=2 data-nosnippet>2</a>
+<a href=#3 id=3 data-nosnippet>3</a><span class="kw">use </span>std::fs::File;
+<a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span>std::path::PathBuf;
+<a href=#5 id=5 data-nosnippet>5</a><span class="kw">use </span>std::io::{Read, Write};
 <a href=#6 id=6 data-nosnippet>6</a>
-<a href=#7 id=7 data-nosnippet>7</a><span class="kw">use </span>std::fs::File;
-<a href=#8 id=8 data-nosnippet>8</a><span class="kw">use </span>std::path::PathBuf;
-<a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span>std::io::{<span class="self">self</span>, Read, Write};
-<a href=#10 id=10 data-nosnippet>10</a>
-<a href=#11 id=11 data-nosnippet>11</a><span class="kw">use </span><span class="kw">super</span>::hex_to_bytes;
-<a href=#12 id=12 data-nosnippet>12</a>
-<a href=#13 id=13 data-nosnippet>13</a><span class="attr">#[derive(Debug)]
-<a href=#14 id=14 data-nosnippet>14</a></span><span class="kw">pub struct </span>RsaData
-<a href=#15 id=15 data-nosnippet>15</a>{
-<a href=#16 id=16 data-nosnippet>16</a>    <span class="kw">pub </span>p: U256, <span class="comment">// primary number one
-<a href=#17 id=17 data-nosnippet>17</a>    </span><span class="kw">pub </span>q: U256, <span class="comment">// primary number two
-<a href=#18 id=18 data-nosnippet>18</a>    </span><span class="kw">pub </span>n: U512, <span class="comment">// modulus
-<a href=#19 id=19 data-nosnippet>19</a>    </span><span class="kw">pub </span>public_key: U512, <span class="comment">// e - public exponent
-<a href=#20 id=20 data-nosnippet>20</a>    </span><span class="kw">pub </span>private_key: U512,<span class="comment">// d - private exponent
-<a href=#21 id=21 data-nosnippet>21</a></span>}
-<a href=#22 id=22 data-nosnippet>22</a>
-<a href=#23 id=23 data-nosnippet>23</a><span class="kw">impl </span>RsaData
-<a href=#24 id=24 data-nosnippet>24</a>{
-<a href=#25 id=25 data-nosnippet>25</a>    <span class="comment">// Быстрое возведение в степень и модуль
-<a href=#26 id=26 data-nosnippet>26</a>    </span><span class="kw">fn </span>modpow(<span class="kw-2">mut </span>base: U512, <span class="kw-2">mut </span>exp: U512, modulus: U512) -&gt; U512 {
-<a href=#27 id=27 data-nosnippet>27</a>        <span class="kw">if </span>modulus == U512::ONE
-<a href=#28 id=28 data-nosnippet>28</a>        {
-<a href=#29 id=29 data-nosnippet>29</a>            <span class="kw">return </span>U512::ZERO;
-<a href=#30 id=30 data-nosnippet>30</a>        }
-<a href=#31 id=31 data-nosnippet>31</a>
-<a href=#32 id=32 data-nosnippet>32</a>        <span class="kw">let </span>modulus_nz: NonZero&lt;U512&gt; = NonZero::new(modulus).expect(<span class="string">"modulus must be nonzero"</span>);
-<a href=#33 id=33 data-nosnippet>33</a>        <span class="kw">let </span><span class="kw-2">mut </span>result: U512 = U512::ONE;
-<a href=#34 id=34 data-nosnippet>34</a>        base = base % modulus;
-<a href=#35 id=35 data-nosnippet>35</a>
-<a href=#36 id=36 data-nosnippet>36</a>        <span class="kw">while </span>exp &gt; U512::ZERO {
-<a href=#37 id=37 data-nosnippet>37</a>            <span class="kw">if </span>exp.is_odd().into() {
-<a href=#38 id=38 data-nosnippet>38</a>                result = result.mul_mod(<span class="kw-2">&amp;</span>base, <span class="kw-2">&amp;</span>modulus_nz);
-<a href=#39 id=39 data-nosnippet>39</a>            }
-<a href=#40 id=40 data-nosnippet>40</a>            
-<a href=#41 id=41 data-nosnippet>41</a>            exp = exp &gt;&gt; <span class="number">1</span>;
-<a href=#42 id=42 data-nosnippet>42</a>            base = base.mul_mod(<span class="kw-2">&amp;</span>base, <span class="kw-2">&amp;</span>modulus_nz);
-<a href=#43 id=43 data-nosnippet>43</a>        }
-<a href=#44 id=44 data-nosnippet>44</a>        result
-<a href=#45 id=45 data-nosnippet>45</a>    }
-<a href=#46 id=46 data-nosnippet>46</a>
-<a href=#47 id=47 data-nosnippet>47</a>    <span class="comment">// Запись данных RSA в файл RsaData
-<a href=#48 id=48 data-nosnippet>48</a>    </span><span class="kw">fn </span>stf(data:<span class="kw-2">&amp;</span>RsaData)
-<a href=#49 id=49 data-nosnippet>49</a>    {
-<a href=#50 id=50 data-nosnippet>50</a>        <span class="kw">let </span><span class="kw-2">mut </span>file = File::create(<span class="string">"RsaData"</span>).unwrap();
-<a href=#51 id=51 data-nosnippet>51</a>        
-<a href=#52 id=52 data-nosnippet>52</a>        <span class="macro">writeln!</span>(file, <span class="string">"p = {}"</span>, data.p).unwrap();
-<a href=#53 id=53 data-nosnippet>53</a>        <span class="macro">writeln!</span>(file, <span class="string">"q = {}"</span>, data.q).unwrap();
-<a href=#54 id=54 data-nosnippet>54</a>        <span class="macro">writeln!</span>(file, <span class="string">"n = {}"</span>, data.n).unwrap();
-<a href=#55 id=55 data-nosnippet>55</a>        <span class="macro">writeln!</span>(file, <span class="string">"public_key = {}"</span>, data.public_key).unwrap();
-<a href=#56 id=56 data-nosnippet>56</a>        <span class="macro">writeln!</span>(file, <span class="string">"private_key = {}"</span>, data.private_key).unwrap();
-<a href=#57 id=57 data-nosnippet>57</a>    }
+<a href=#7 id=7 data-nosnippet>7</a><span class="attr">#[derive(Debug)]
+<a href=#8 id=8 data-nosnippet>8</a></span><span class="kw">pub struct </span>RsaData
+<a href=#9 id=9 data-nosnippet>9</a>{
+<a href=#10 id=10 data-nosnippet>10</a>    <span class="kw">pub </span>p: U256, <span class="comment">// primary number one
+<a href=#11 id=11 data-nosnippet>11</a>    </span><span class="kw">pub </span>q: U256, <span class="comment">// primary number two
+<a href=#12 id=12 data-nosnippet>12</a>    </span><span class="kw">pub </span>n: U512, <span class="comment">// modulus
+<a href=#13 id=13 data-nosnippet>13</a>    </span><span class="kw">pub </span>public_key: U512, <span class="comment">// e - public exponent
+<a href=#14 id=14 data-nosnippet>14</a>    </span><span class="kw">pub </span>private_key: U512,<span class="comment">// d - private exponent
+<a href=#15 id=15 data-nosnippet>15</a></span>}
+<a href=#16 id=16 data-nosnippet>16</a>
+<a href=#17 id=17 data-nosnippet>17</a><span class="kw">impl </span>RsaData
+<a href=#18 id=18 data-nosnippet>18</a>{
+<a href=#19 id=19 data-nosnippet>19</a>    <span class="comment">// Быстрое возведение в степень и модуль
+<a href=#20 id=20 data-nosnippet>20</a>    </span><span class="kw">fn </span>modpow(<span class="kw-2">mut </span>base: U512, <span class="kw-2">mut </span>exp: U512, modulus: U512) -&gt; U512 {
+<a href=#21 id=21 data-nosnippet>21</a>        <span class="kw">if </span>modulus == U512::ONE
+<a href=#22 id=22 data-nosnippet>22</a>        {
+<a href=#23 id=23 data-nosnippet>23</a>            <span class="kw">return </span>U512::ZERO;
+<a href=#24 id=24 data-nosnippet>24</a>        }
+<a href=#25 id=25 data-nosnippet>25</a>
+<a href=#26 id=26 data-nosnippet>26</a>        <span class="kw">let </span>modulus_nz: NonZero&lt;U512&gt; = NonZero::new(modulus).expect(<span class="string">"modulus must be nonzero"</span>);
+<a href=#27 id=27 data-nosnippet>27</a>        <span class="kw">let </span><span class="kw-2">mut </span>result: U512 = U512::ONE;
+<a href=#28 id=28 data-nosnippet>28</a>        base = base % modulus;
+<a href=#29 id=29 data-nosnippet>29</a>
+<a href=#30 id=30 data-nosnippet>30</a>        <span class="kw">while </span>exp &gt; U512::ZERO {
+<a href=#31 id=31 data-nosnippet>31</a>            <span class="kw">if </span>exp.is_odd().into() {
+<a href=#32 id=32 data-nosnippet>32</a>                result = result.mul_mod(<span class="kw-2">&amp;</span>base, <span class="kw-2">&amp;</span>modulus_nz);
+<a href=#33 id=33 data-nosnippet>33</a>            }
+<a href=#34 id=34 data-nosnippet>34</a>            
+<a href=#35 id=35 data-nosnippet>35</a>            exp = exp &gt;&gt; <span class="number">1</span>;
+<a href=#36 id=36 data-nosnippet>36</a>            base = base.mul_mod(<span class="kw-2">&amp;</span>base, <span class="kw-2">&amp;</span>modulus_nz);
+<a href=#37 id=37 data-nosnippet>37</a>        }
+<a href=#38 id=38 data-nosnippet>38</a>        result
+<a href=#39 id=39 data-nosnippet>39</a>    }
+<a href=#40 id=40 data-nosnippet>40</a>
+<a href=#41 id=41 data-nosnippet>41</a>    <span class="comment">// Запись данных RSA в файл RsaData
+<a href=#42 id=42 data-nosnippet>42</a>    </span><span class="kw">fn </span>stf(data:<span class="kw-2">&amp;</span>RsaData)
+<a href=#43 id=43 data-nosnippet>43</a>    {
+<a href=#44 id=44 data-nosnippet>44</a>        <span class="kw">let </span><span class="kw-2">mut </span>file = File::create(<span class="string">"RsaData"</span>).unwrap();
+<a href=#45 id=45 data-nosnippet>45</a>        
+<a href=#46 id=46 data-nosnippet>46</a>        <span class="macro">writeln!</span>(file, <span class="string">"p = {}"</span>, data.p).unwrap();
+<a href=#47 id=47 data-nosnippet>47</a>        <span class="macro">writeln!</span>(file, <span class="string">"q = {}"</span>, data.q).unwrap();
+<a href=#48 id=48 data-nosnippet>48</a>        <span class="macro">writeln!</span>(file, <span class="string">"n = {}"</span>, data.n).unwrap();
+<a href=#49 id=49 data-nosnippet>49</a>        <span class="macro">writeln!</span>(file, <span class="string">"public_key = {}"</span>, data.public_key).unwrap();
+<a href=#50 id=50 data-nosnippet>50</a>        <span class="macro">writeln!</span>(file, <span class="string">"private_key = {}"</span>, data.private_key).unwrap();
+<a href=#51 id=51 data-nosnippet>51</a>    }
+<a href=#52 id=52 data-nosnippet>52</a>
+<a href=#53 id=53 data-nosnippet>53</a>    <span class="comment">// Необходимо перепроверить всю функцию
+<a href=#54 id=54 data-nosnippet>54</a>    </span><span class="kw">pub fn </span>bpn_check(number:U256) -&gt; bool
+<a href=#55 id=55 data-nosnippet>55</a>    {
+<a href=#56 id=56 data-nosnippet>56</a>        <span class="kw">let </span><span class="kw-2">mut </span>s:U256 =  U256::ZERO;
+<a href=#57 id=57 data-nosnippet>57</a>        <span class="kw">let </span><span class="kw-2">mut </span>d:U256 = number - U256::ONE;
 <a href=#58 id=58 data-nosnippet>58</a>
-<a href=#59 id=59 data-nosnippet>59</a>    <span class="comment">// Необходимо перепроверить всю функцию
-<a href=#60 id=60 data-nosnippet>60</a>    </span><span class="kw">fn </span>bpn_check(number:U256) -&gt; bool
-<a href=#61 id=61 data-nosnippet>61</a>    {
-<a href=#62 id=62 data-nosnippet>62</a>        <span class="kw">let </span><span class="kw-2">mut </span>s:U256 =  U256::ZERO;
-<a href=#63 id=63 data-nosnippet>63</a>        <span class="kw">let </span><span class="kw-2">mut </span>d:U256 = number - U256::ONE;
-<a href=#64 id=64 data-nosnippet>64</a>
-<a href=#65 id=65 data-nosnippet>65</a>        <span class="comment">// Получаем s и d из выражения n - 1 = (2^s)*d
-<a href=#66 id=66 data-nosnippet>66</a>        </span><span class="kw">while </span>d.is_even().into()
-<a href=#67 id=67 data-nosnippet>67</a>        {
-<a href=#68 id=68 data-nosnippet>68</a>            s += U256::ONE;
-<a href=#69 id=69 data-nosnippet>69</a>            d = d.shr(<span class="number">1</span>);
-<a href=#70 id=70 data-nosnippet>70</a>        }
-<a href=#71 id=71 data-nosnippet>71</a>
-<a href=#72 id=72 data-nosnippet>72</a>        <span class="comment">// Расчет значения ⌊2(ln_number)^2⌋ в виде floor(pow(ln2/lnE,2))
-<a href=#73 id=73 data-nosnippet>73</a>        // ln2
-<a href=#74 id=74 data-nosnippet>74</a>        </span><span class="kw">let </span>log2_n  = <span class="kw">if </span>number.bits() &gt; <span class="number">0 </span>{
-<a href=#75 id=75 data-nosnippet>75</a>            (number.bits() - <span class="number">1</span>) <span class="kw">as </span>f64
-<a href=#76 id=76 data-nosnippet>76</a>        } <span class="kw">else </span>{
-<a href=#77 id=77 data-nosnippet>77</a>            <span class="number">0 </span><span class="kw">as </span>f64
-<a href=#78 id=78 data-nosnippet>78</a>        };
-<a href=#79 id=79 data-nosnippet>79</a>
-<a href=#80 id=80 data-nosnippet>80</a>        <span class="kw">let </span>ln_n = log2_n / std::f64::consts::LOG2_E;
-<a href=#81 id=81 data-nosnippet>81</a>        <span class="kw">let </span>floor_ln_n = U256::from((<span class="number">2.0</span><span class="kw-2">*</span>ln_n.powi(<span class="number">2</span>)).floor() <span class="kw">as </span>u128);
-<a href=#82 id=82 data-nosnippet>82</a>
-<a href=#83 id=83 data-nosnippet>83</a>        <span class="kw">let </span>min:U256 = <span class="kw">if </span>number - U256::ONE - U256::ONE &lt; floor_ln_n
-<a href=#84 id=84 data-nosnippet>84</a>        {
-<a href=#85 id=85 data-nosnippet>85</a>            number - U256::ONE - U256::ONE
-<a href=#86 id=86 data-nosnippet>86</a>        }
-<a href=#87 id=87 data-nosnippet>87</a>        <span class="kw">else </span>{
-<a href=#88 id=88 data-nosnippet>88</a>            floor_ln_n
-<a href=#89 id=89 data-nosnippet>89</a>        };
-<a href=#90 id=90 data-nosnippet>90</a>
-<a href=#91 id=91 data-nosnippet>91</a>        <span class="kw">let </span><span class="kw-2">mut </span>x:U256;
-<a href=#92 id=92 data-nosnippet>92</a>        <span class="kw">let </span><span class="kw-2">mut </span>y:U256;
-<a href=#93 id=93 data-nosnippet>93</a>
-<a href=#94 id=94 data-nosnippet>94</a>        <span class="kw">let </span><span class="kw-2">mut </span>a:U256 = U256::from(<span class="number">2u32</span>);
-<a href=#95 id=95 data-nosnippet>95</a>        
-<a href=#96 id=96 data-nosnippet>96</a>        <span class="comment">// for all a in the range [2, min(n − 2, ⌊2(ln_number)^2⌋)]:
-<a href=#97 id=97 data-nosnippet>97</a>        </span><span class="kw">while </span>a &lt; min
-<a href=#98 id=98 data-nosnippet>98</a>        {
-<a href=#99 id=99 data-nosnippet>99</a>            <span class="comment">// x ← a^d mod n
-<a href=#100 id=100 data-nosnippet>100</a>            // x = Self::modpow(a, d, number);
-<a href=#101 id=101 data-nosnippet>101</a>
-<a href=#102 id=102 data-nosnippet>102</a>            // Долго и вылетает с переполнением
-<a href=#103 id=103 data-nosnippet>103</a>            </span><span class="kw">let </span><span class="kw-2">mut </span>i:U256 = U256::ONE;
-<a href=#104 id=104 data-nosnippet>104</a>            <span class="kw">let </span><span class="kw-2">mut </span>temp_x:U256 = a % number;
-<a href=#105 id=105 data-nosnippet>105</a>
-<a href=#106 id=106 data-nosnippet>106</a>            <span class="comment">// Возведение в степень d - 1 раз
-<a href=#107 id=107 data-nosnippet>107</a>            </span><span class="kw">while </span>i &lt; d
-<a href=#108 id=108 data-nosnippet>108</a>            {
-<a href=#109 id=109 data-nosnippet>109</a>                temp_x = temp_x * a % number;
-<a href=#110 id=110 data-nosnippet>110</a>
-<a href=#111 id=111 data-nosnippet>111</a>                i += U256::ONE;
-<a href=#112 id=112 data-nosnippet>112</a>            }
+<a href=#59 id=59 data-nosnippet>59</a>        <span class="comment">// Получаем s и d из выражения n - 1 = (2^s)*d
+<a href=#60 id=60 data-nosnippet>60</a>        </span><span class="kw">while </span>d.is_even().into()
+<a href=#61 id=61 data-nosnippet>61</a>        {
+<a href=#62 id=62 data-nosnippet>62</a>            s += U256::ONE;
+<a href=#63 id=63 data-nosnippet>63</a>            d = d.shr(<span class="number">1</span>);
+<a href=#64 id=64 data-nosnippet>64</a>        }
+<a href=#65 id=65 data-nosnippet>65</a>
+<a href=#66 id=66 data-nosnippet>66</a>        <span class="comment">// Расчет значения ⌊2(ln_number)^2⌋ в виде floor(pow(ln2/lnE,2))
+<a href=#67 id=67 data-nosnippet>67</a>        // ln2
+<a href=#68 id=68 data-nosnippet>68</a>        </span><span class="kw">let </span>log2_n  = <span class="kw">if </span>number.bits() &gt; <span class="number">0 </span>{
+<a href=#69 id=69 data-nosnippet>69</a>            (number.bits() - <span class="number">1</span>) <span class="kw">as </span>f64
+<a href=#70 id=70 data-nosnippet>70</a>        } <span class="kw">else </span>{
+<a href=#71 id=71 data-nosnippet>71</a>            <span class="number">0 </span><span class="kw">as </span>f64
+<a href=#72 id=72 data-nosnippet>72</a>        };
+<a href=#73 id=73 data-nosnippet>73</a>
+<a href=#74 id=74 data-nosnippet>74</a>        <span class="kw">let </span>ln_n = log2_n / std::f64::consts::LOG2_E;
+<a href=#75 id=75 data-nosnippet>75</a>        <span class="kw">let </span>floor_ln_n = U256::from((<span class="number">2.0</span><span class="kw-2">*</span>ln_n.powi(<span class="number">2</span>)).floor() <span class="kw">as </span>u128);
+<a href=#76 id=76 data-nosnippet>76</a>
+<a href=#77 id=77 data-nosnippet>77</a>        <span class="kw">let </span>min:U256 = <span class="kw">if </span>number - U256::ONE - U256::ONE &lt; floor_ln_n
+<a href=#78 id=78 data-nosnippet>78</a>        {
+<a href=#79 id=79 data-nosnippet>79</a>            number - U256::ONE - U256::ONE
+<a href=#80 id=80 data-nosnippet>80</a>        }
+<a href=#81 id=81 data-nosnippet>81</a>        <span class="kw">else </span>{
+<a href=#82 id=82 data-nosnippet>82</a>            floor_ln_n
+<a href=#83 id=83 data-nosnippet>83</a>        };
+<a href=#84 id=84 data-nosnippet>84</a>
+<a href=#85 id=85 data-nosnippet>85</a>        <span class="kw">let </span><span class="kw-2">mut </span>x:U256;
+<a href=#86 id=86 data-nosnippet>86</a>        <span class="kw">let </span><span class="kw-2">mut </span>y:U256;
+<a href=#87 id=87 data-nosnippet>87</a>
+<a href=#88 id=88 data-nosnippet>88</a>        <span class="kw">let </span><span class="kw-2">mut </span>a:U256 = U256::from(<span class="number">2u32</span>);
+<a href=#89 id=89 data-nosnippet>89</a>        
+<a href=#90 id=90 data-nosnippet>90</a>        <span class="comment">// for all a in the range [2, min(n − 2, ⌊2(ln_number)^2⌋)]:
+<a href=#91 id=91 data-nosnippet>91</a>        </span><span class="kw">while </span>a &lt; min
+<a href=#92 id=92 data-nosnippet>92</a>        {
+<a href=#93 id=93 data-nosnippet>93</a>            <span class="comment">// x ← a^d mod n
+<a href=#94 id=94 data-nosnippet>94</a>            // x = Self::modpow(a, d, number);
+<a href=#95 id=95 data-nosnippet>95</a>
+<a href=#96 id=96 data-nosnippet>96</a>            // Долго и вылетает с переполнением
+<a href=#97 id=97 data-nosnippet>97</a>            </span><span class="kw">let </span><span class="kw-2">mut </span>i:U256 = U256::ONE;
+<a href=#98 id=98 data-nosnippet>98</a>            <span class="kw">let </span><span class="kw-2">mut </span>temp_x:U256 = a % number;
+<a href=#99 id=99 data-nosnippet>99</a>
+<a href=#100 id=100 data-nosnippet>100</a>            <span class="comment">// Возведение в степень d - 1 раз
+<a href=#101 id=101 data-nosnippet>101</a>            </span><span class="kw">while </span>i &lt; d
+<a href=#102 id=102 data-nosnippet>102</a>            {
+<a href=#103 id=103 data-nosnippet>103</a>                temp_x = temp_x * a % number;
+<a href=#104 id=104 data-nosnippet>104</a>
+<a href=#105 id=105 data-nosnippet>105</a>                i += U256::ONE;
+<a href=#106 id=106 data-nosnippet>106</a>            }
+<a href=#107 id=107 data-nosnippet>107</a>
+<a href=#108 id=108 data-nosnippet>108</a>            x = temp_x;
+<a href=#109 id=109 data-nosnippet>109</a>
+<a href=#110 id=110 data-nosnippet>110</a>            <span class="kw">let </span><span class="kw-2">mut </span>i:U256 = U256::ZERO;
+<a href=#111 id=111 data-nosnippet>111</a>
+<a href=#112 id=112 data-nosnippet>112</a>            y = x;
 <a href=#113 id=113 data-nosnippet>113</a>
-<a href=#114 id=114 data-nosnippet>114</a>            x = temp_x;
-<a href=#115 id=115 data-nosnippet>115</a>
-<a href=#116 id=116 data-nosnippet>116</a>            <span class="kw">let </span><span class="kw-2">mut </span>i:U256 = U256::ZERO;
-<a href=#117 id=117 data-nosnippet>117</a>
-<a href=#118 id=118 data-nosnippet>118</a>            y = x;
+<a href=#114 id=114 data-nosnippet>114</a>            <span class="kw">while </span>i &lt; s
+<a href=#115 id=115 data-nosnippet>115</a>            {
+<a href=#116 id=116 data-nosnippet>116</a>                <span class="comment">// y = x^2 mod number;
+<a href=#117 id=117 data-nosnippet>117</a>                </span>y = x % number;
+<a href=#118 id=118 data-nosnippet>118</a>                y = y * x % number;
 <a href=#119 id=119 data-nosnippet>119</a>
-<a href=#120 id=120 data-nosnippet>120</a>            <span class="kw">while </span>i &lt; s
-<a href=#121 id=121 data-nosnippet>121</a>            {
-<a href=#122 id=122 data-nosnippet>122</a>                <span class="comment">// y = x^2 mod number;
-<a href=#123 id=123 data-nosnippet>123</a>                </span>y = x % number;
-<a href=#124 id=124 data-nosnippet>124</a>                y = y * x % number;
-<a href=#125 id=125 data-nosnippet>125</a>
-<a href=#126 id=126 data-nosnippet>126</a>                <span class="kw">if </span>y == U256::ONE &amp;&amp; x != U256::ONE &amp;&amp; x != (number - U256::ONE) {<span class="kw">return </span><span class="bool-val">false</span>;}
-<a href=#127 id=127 data-nosnippet>127</a>                
-<a href=#128 id=128 data-nosnippet>128</a>                x = y;
+<a href=#120 id=120 data-nosnippet>120</a>                <span class="kw">if </span>y == U256::ONE &amp;&amp; x != U256::ONE &amp;&amp; x != (number - U256::ONE) {<span class="kw">return </span><span class="bool-val">false</span>;}
+<a href=#121 id=121 data-nosnippet>121</a>                
+<a href=#122 id=122 data-nosnippet>122</a>                x = y;
+<a href=#123 id=123 data-nosnippet>123</a>
+<a href=#124 id=124 data-nosnippet>124</a>                i += U256::ONE;
+<a href=#125 id=125 data-nosnippet>125</a>            }
+<a href=#126 id=126 data-nosnippet>126</a>
+<a href=#127 id=127 data-nosnippet>127</a>            <span class="comment">// Уточнить про ситуацию неинициализированного y при s = 0
+<a href=#128 id=128 data-nosnippet>128</a>            </span><span class="kw">if </span>y != U256::ONE {<span class="kw">return </span><span class="bool-val">false</span>;}
 <a href=#129 id=129 data-nosnippet>129</a>
-<a href=#130 id=130 data-nosnippet>130</a>                i += U256::ONE;
-<a href=#131 id=131 data-nosnippet>131</a>            }
+<a href=#130 id=130 data-nosnippet>130</a>            a += U256::ONE
+<a href=#131 id=131 data-nosnippet>131</a>        }
 <a href=#132 id=132 data-nosnippet>132</a>
-<a href=#133 id=133 data-nosnippet>133</a>            <span class="comment">// Уточнить про ситуацию неинициализированного y при s = 0
-<a href=#134 id=134 data-nosnippet>134</a>            </span><span class="kw">if </span>y != U256::ONE {<span class="kw">return </span><span class="bool-val">false</span>;}
+<a href=#133 id=133 data-nosnippet>133</a>        <span class="kw">return </span><span class="bool-val">true</span>;
+<a href=#134 id=134 data-nosnippet>134</a>    }
 <a href=#135 id=135 data-nosnippet>135</a>
-<a href=#136 id=136 data-nosnippet>136</a>            a += U256::ONE
-<a href=#137 id=137 data-nosnippet>137</a>        }
-<a href=#138 id=138 data-nosnippet>138</a>
-<a href=#139 id=139 data-nosnippet>139</a>        <span class="kw">return </span><span class="bool-val">true</span>;
-<a href=#140 id=140 data-nosnippet>140</a>    }
-<a href=#141 id=141 data-nosnippet>141</a>
-<a href=#142 id=142 data-nosnippet>142</a>    <span class="kw">fn </span>get_bpn() -&gt; (U256, U256)
-<a href=#143 id=143 data-nosnippet>143</a>    {
-<a href=#144 id=144 data-nosnippet>144</a>        <span class="kw">let </span>p;
-<a href=#145 id=145 data-nosnippet>145</a>        <span class="kw">let </span>q;
-<a href=#146 id=146 data-nosnippet>146</a>
-<a href=#147 id=147 data-nosnippet>147</a>        <span class="comment">// p = Uint::&lt;LIMBS&gt;::random(&amp;mut OsRng);
-<a href=#148 id=148 data-nosnippet>148</a>        // q = Uint::&lt;LIMBS&gt;::random(&amp;mut OsRng);
-<a href=#149 id=149 data-nosnippet>149</a>        
-<a href=#150 id=150 data-nosnippet>150</a>        // RsaData::bpn_check(p);
-<a href=#151 id=151 data-nosnippet>151</a>        // RsaData::bpn_check(q);
-<a href=#152 id=152 data-nosnippet>152</a>        
-<a href=#153 id=153 data-nosnippet>153</a>        </span>p = crypto_primes::generate_prime(<span class="number">256</span>);
-<a href=#154 id=154 data-nosnippet>154</a>        q = crypto_primes::generate_prime(<span class="number">256</span>);
-<a href=#155 id=155 data-nosnippet>155</a>
-<a href=#156 id=156 data-nosnippet>156</a>        <span class="comment">// println!("p={p:?} \nq={q:?}\n");
-<a href=#157 id=157 data-nosnippet>157</a>
-<a href=#158 id=158 data-nosnippet>158</a>        </span>(p, q)
-<a href=#159 id=159 data-nosnippet>159</a>    }
-<a href=#160 id=160 data-nosnippet>160</a>
-<a href=#161 id=161 data-nosnippet>161</a>    <span class="kw">fn </span>coprime(<span class="kw-2">mut </span>a:U512, <span class="kw-2">mut </span>b:U512) -&gt; bool
-<a href=#162 id=162 data-nosnippet>162</a>    {
-<a href=#163 id=163 data-nosnippet>163</a>        <span class="comment">// Евклида Алгоритм
-<a href=#164 id=164 data-nosnippet>164</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>r = U512::ONE;
-<a href=#165 id=165 data-nosnippet>165</a>
-<a href=#166 id=166 data-nosnippet>166</a>        <span class="kw">while </span>r != U512::ZERO 
-<a href=#167 id=167 data-nosnippet>167</a>        {
-<a href=#168 id=168 data-nosnippet>168</a>            r = b % a;       
-<a href=#169 id=169 data-nosnippet>169</a>            b = a;
-<a href=#170 id=170 data-nosnippet>170</a>            a = r;   
-<a href=#171 id=171 data-nosnippet>171</a>        }
-<a href=#172 id=172 data-nosnippet>172</a>
-<a href=#173 id=173 data-nosnippet>173</a>        <span class="kw">if </span>b == U512::ONE {<span class="bool-val">true</span>}
-<a href=#174 id=174 data-nosnippet>174</a>        <span class="kw">else </span>{<span class="bool-val">false</span>}
-<a href=#175 id=175 data-nosnippet>175</a>    }
+<a href=#136 id=136 data-nosnippet>136</a>    <span class="kw">fn </span>get_bpn() -&gt; (U256, U256)
+<a href=#137 id=137 data-nosnippet>137</a>    {
+<a href=#138 id=138 data-nosnippet>138</a>        <span class="kw">let </span>p;
+<a href=#139 id=139 data-nosnippet>139</a>        <span class="kw">let </span>q;
+<a href=#140 id=140 data-nosnippet>140</a>
+<a href=#141 id=141 data-nosnippet>141</a>        <span class="comment">// p = Uint::&lt;LIMBS&gt;::random(&amp;mut OsRng);
+<a href=#142 id=142 data-nosnippet>142</a>        // q = Uint::&lt;LIMBS&gt;::random(&amp;mut OsRng);
+<a href=#143 id=143 data-nosnippet>143</a>        
+<a href=#144 id=144 data-nosnippet>144</a>        // RsaData::bpn_check(p);
+<a href=#145 id=145 data-nosnippet>145</a>        // RsaData::bpn_check(q);
+<a href=#146 id=146 data-nosnippet>146</a>        
+<a href=#147 id=147 data-nosnippet>147</a>        </span>p = crypto_primes::generate_prime(<span class="number">256</span>);
+<a href=#148 id=148 data-nosnippet>148</a>        q = crypto_primes::generate_prime(<span class="number">256</span>);
+<a href=#149 id=149 data-nosnippet>149</a>
+<a href=#150 id=150 data-nosnippet>150</a>        <span class="comment">// println!("p={p:?} \nq={q:?}\n");
+<a href=#151 id=151 data-nosnippet>151</a>
+<a href=#152 id=152 data-nosnippet>152</a>        </span>(p, q)
+<a href=#153 id=153 data-nosnippet>153</a>    }
+<a href=#154 id=154 data-nosnippet>154</a>
+<a href=#155 id=155 data-nosnippet>155</a>    <span class="kw">fn </span>coprime(<span class="kw-2">mut </span>a:U512, <span class="kw-2">mut </span>b:U512) -&gt; bool
+<a href=#156 id=156 data-nosnippet>156</a>    {
+<a href=#157 id=157 data-nosnippet>157</a>        <span class="comment">// Евклида Алгоритм
+<a href=#158 id=158 data-nosnippet>158</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>r = U512::ONE;
+<a href=#159 id=159 data-nosnippet>159</a>
+<a href=#160 id=160 data-nosnippet>160</a>        <span class="kw">while </span>r != U512::ZERO 
+<a href=#161 id=161 data-nosnippet>161</a>        {
+<a href=#162 id=162 data-nosnippet>162</a>            r = b % a;       
+<a href=#163 id=163 data-nosnippet>163</a>            b = a;
+<a href=#164 id=164 data-nosnippet>164</a>            a = r;   
+<a href=#165 id=165 data-nosnippet>165</a>        }
+<a href=#166 id=166 data-nosnippet>166</a>
+<a href=#167 id=167 data-nosnippet>167</a>        <span class="kw">if </span>b == U512::ONE {<span class="bool-val">true</span>}
+<a href=#168 id=168 data-nosnippet>168</a>        <span class="kw">else </span>{<span class="bool-val">false</span>}
+<a href=#169 id=169 data-nosnippet>169</a>    }
+<a href=#170 id=170 data-nosnippet>170</a>
+<a href=#171 id=171 data-nosnippet>171</a>    <span class="comment">// Проблема с U512 и I1024/2048
+<a href=#172 id=172 data-nosnippet>172</a>    // fn extended_gcd(mut a:U512, mut b:U512) -&gt; (U512, U512)
+<a href=#173 id=173 data-nosnippet>173</a>    // {
+<a href=#174 id=174 data-nosnippet>174</a>    //     // let mut old_rem = a;
+<a href=#175 id=175 data-nosnippet>175</a>    //     // let mut rem: U1024 = b;
 <a href=#176 id=176 data-nosnippet>176</a>
-<a href=#177 id=177 data-nosnippet>177</a>    <span class="comment">// Проблема с U512 и I1024/2048
-<a href=#178 id=178 data-nosnippet>178</a>    // fn extended_gcd(mut a:U512, mut b:U512) -&gt; (U512, U512)
-<a href=#179 id=179 data-nosnippet>179</a>    // {
-<a href=#180 id=180 data-nosnippet>180</a>    //     // let mut old_rem = a;
-<a href=#181 id=181 data-nosnippet>181</a>    //     // let mut rem: U1024 = b;
-<a href=#182 id=182 data-nosnippet>182</a>
-<a href=#183 id=183 data-nosnippet>183</a>    //     let mut x0 = I2048::ONE;
-<a href=#184 id=184 data-nosnippet>184</a>    //     let mut x1 =  I2048::ZERO;
-<a href=#185 id=185 data-nosnippet>185</a>    //     let mut y0 =  I2048::ZERO;
-<a href=#186 id=186 data-nosnippet>186</a>    //     let mut y1 = I2048::ONE; 
-<a href=#187 id=187 data-nosnippet>187</a>
-<a href=#188 id=188 data-nosnippet>188</a>    //     let mut quotient = I2048::ZERO; // Частное
-<a href=#189 id=189 data-nosnippet>189</a>    //     let mut remainder = I2048::ONE; // Остаток
-<a href=#190 id=190 data-nosnippet>190</a>
-<a href=#191 id=191 data-nosnippet>191</a>    //     let mut prov:I2048;
-<a href=#192 id=192 data-nosnippet>192</a>
-<a href=#193 id=193 data-nosnippet>193</a>    //     let mut rem = U1024::ONE;
-<a href=#194 id=194 data-nosnippet>194</a>    //     let mut old_rem = U1024::ONE;
-<a href=#195 id=195 data-nosnippet>195</a>    //     // d^-1*e mod phi(n) = 1
-<a href=#196 id=196 data-nosnippet>196</a>    //     while rem != U1024::ZERO
-<a href=#197 id=197 data-nosnippet>197</a>    //     {
-<a href=#198 id=198 data-nosnippet>198</a>    //         let nr = NonZero::new(rem).unwrap(); // CtOption -&gt; unwrap (runtime)
-<a href=#199 id=199 data-nosnippet>199</a>    //         let (q, rem) = old_rem.div_rem(&amp;nr); // q: U1024, rem: U1024
+<a href=#177 id=177 data-nosnippet>177</a>    //     let mut x0 = I2048::ONE;
+<a href=#178 id=178 data-nosnippet>178</a>    //     let mut x1 =  I2048::ZERO;
+<a href=#179 id=179 data-nosnippet>179</a>    //     let mut y0 =  I2048::ZERO;
+<a href=#180 id=180 data-nosnippet>180</a>    //     let mut y1 = I2048::ONE; 
+<a href=#181 id=181 data-nosnippet>181</a>
+<a href=#182 id=182 data-nosnippet>182</a>    //     let mut quotient = I2048::ZERO; // Частное
+<a href=#183 id=183 data-nosnippet>183</a>    //     let mut remainder = I2048::ONE; // Остаток
+<a href=#184 id=184 data-nosnippet>184</a>
+<a href=#185 id=185 data-nosnippet>185</a>    //     let mut prov:I2048;
+<a href=#186 id=186 data-nosnippet>186</a>
+<a href=#187 id=187 data-nosnippet>187</a>    //     let mut rem = U1024::ONE;
+<a href=#188 id=188 data-nosnippet>188</a>    //     let mut old_rem = U1024::ONE;
+<a href=#189 id=189 data-nosnippet>189</a>    //     // d^-1*e mod phi(n) = 1
+<a href=#190 id=190 data-nosnippet>190</a>    //     while rem != U1024::ZERO
+<a href=#191 id=191 data-nosnippet>191</a>    //     {
+<a href=#192 id=192 data-nosnippet>192</a>    //         let nr = NonZero::new(rem).unwrap(); // CtOption -&gt; unwrap (runtime)
+<a href=#193 id=193 data-nosnippet>193</a>    //         let (q, rem) = old_rem.div_rem(&amp;nr); // q: U1024, rem: U1024
+<a href=#194 id=194 data-nosnippet>194</a>
+<a href=#195 id=195 data-nosnippet>195</a>    //         quotient = old_rem % rem; 
+<a href=#196 id=196 data-nosnippet>196</a>
+<a href=#197 id=197 data-nosnippet>197</a>    //         prov = rem;      
+<a href=#198 id=198 data-nosnippet>198</a>    //         rem = old_rem - quotient.widening_mul(rem);
+<a href=#199 id=199 data-nosnippet>199</a>    //         old_rem = prov;
 <a href=#200 id=200 data-nosnippet>200</a>
-<a href=#201 id=201 data-nosnippet>201</a>    //         quotient = old_rem % rem; 
-<a href=#202 id=202 data-nosnippet>202</a>
-<a href=#203 id=203 data-nosnippet>203</a>    //         prov = rem;      
-<a href=#204 id=204 data-nosnippet>204</a>    //         rem = old_rem - quotient.widening_mul(rem);
-<a href=#205 id=205 data-nosnippet>205</a>    //         old_rem = prov;
-<a href=#206 id=206 data-nosnippet>206</a>
-<a href=#207 id=207 data-nosnippet>207</a>    //         prov = x1;
-<a href=#208 id=208 data-nosnippet>208</a>    //         x1 = x0 - quotient.widening_mul(x1);
-<a href=#209 id=209 data-nosnippet>209</a>    //         x0 = prov;
-<a href=#210 id=210 data-nosnippet>210</a>
-<a href=#211 id=211 data-nosnippet>211</a>    //         prov = y1;
-<a href=#212 id=212 data-nosnippet>212</a>    //         y1 = y0 - quotient.widening_mul(y1);
-<a href=#213 id=213 data-nosnippet>213</a>    //     }
-<a href=#214 id=214 data-nosnippet>214</a>
-<a href=#215 id=215 data-nosnippet>215</a>    //     (x0, y0);
-<a href=#216 id=216 data-nosnippet>216</a>    // }
+<a href=#201 id=201 data-nosnippet>201</a>    //         prov = x1;
+<a href=#202 id=202 data-nosnippet>202</a>    //         x1 = x0 - quotient.widening_mul(x1);
+<a href=#203 id=203 data-nosnippet>203</a>    //         x0 = prov;
+<a href=#204 id=204 data-nosnippet>204</a>
+<a href=#205 id=205 data-nosnippet>205</a>    //         prov = y1;
+<a href=#206 id=206 data-nosnippet>206</a>    //         y1 = y0 - quotient.widening_mul(y1);
+<a href=#207 id=207 data-nosnippet>207</a>    //     }
+<a href=#208 id=208 data-nosnippet>208</a>
+<a href=#209 id=209 data-nosnippet>209</a>    //     (x0, y0);
+<a href=#210 id=210 data-nosnippet>210</a>    // }
+<a href=#211 id=211 data-nosnippet>211</a>
+<a href=#212 id=212 data-nosnippet>212</a>    </span><span class="kw">fn </span>secret_exp(e:U512, phi_n:U512) -&gt; U512
+<a href=#213 id=213 data-nosnippet>213</a>    {
+<a href=#214 id=214 data-nosnippet>214</a>        <span class="comment">// let (_, d, _) = Self::extended_gcd(e, phi_n);
+<a href=#215 id=215 data-nosnippet>215</a>        </span>e.inv_mod(<span class="kw-2">&amp;</span>phi_n).unwrap()
+<a href=#216 id=216 data-nosnippet>216</a>    }
 <a href=#217 id=217 data-nosnippet>217</a>
-<a href=#218 id=218 data-nosnippet>218</a>    </span><span class="kw">fn </span>secret_exp(e:U512, phi_n:U512) -&gt; U512
-<a href=#219 id=219 data-nosnippet>219</a>    {
-<a href=#220 id=220 data-nosnippet>220</a>        <span class="comment">// let (_, d, _) = Self::extended_gcd(e, phi_n);
-<a href=#221 id=221 data-nosnippet>221</a>        </span>e.inv_mod(<span class="kw-2">&amp;</span>phi_n).unwrap()
-<a href=#222 id=222 data-nosnippet>222</a>    }
+<a href=#218 id=218 data-nosnippet>218</a>    <span class="doccomment">/// Генерация ключей длиной 512 бит для RSA. При корректном результате
+<a href=#219 id=219 data-nosnippet>219</a>    /// выдает структуру RsaData, содержащую все данные для шифрования/расшифрования
+<a href=#220 id=220 data-nosnippet>220</a>    </span><span class="kw">pub fn </span>rsa_512() -&gt; <span class="prelude-ty">Result</span>&lt;RsaData, String&gt;
+<a href=#221 id=221 data-nosnippet>221</a>    {
+<a href=#222 id=222 data-nosnippet>222</a>        <span class="kw">let </span>(p, q) = RsaData::get_bpn();
 <a href=#223 id=223 data-nosnippet>223</a>
-<a href=#224 id=224 data-nosnippet>224</a>    <span class="doccomment">/// Генерация ключей длиной 512 бит для RSA. При корректном результате
-<a href=#225 id=225 data-nosnippet>225</a>    /// выдает структуру RsaData, содержащую все данные для шифрования/расшифрования
-<a href=#226 id=226 data-nosnippet>226</a>    </span><span class="kw">pub fn </span>rsa_512() -&gt; <span class="prelude-ty">Result</span>&lt;RsaData, String&gt;
-<a href=#227 id=227 data-nosnippet>227</a>    {
-<a href=#228 id=228 data-nosnippet>228</a>        <span class="kw">let </span>(p, q) = RsaData::get_bpn();
-<a href=#229 id=229 data-nosnippet>229</a>
-<a href=#230 id=230 data-nosnippet>230</a>        <span class="kw">let </span>q_minus_one = q - U256::ONE;
-<a href=#231 id=231 data-nosnippet>231</a>        <span class="kw">let </span>module: U512 = p.widening_mul(<span class="kw-2">&amp;</span>q);
-<a href=#232 id=232 data-nosnippet>232</a>        <span class="kw">let </span>phi_n: U512 = (p - U256::ONE).widening_mul(<span class="kw-2">&amp;</span>q_minus_one);
-<a href=#233 id=233 data-nosnippet>233</a>
-<a href=#234 id=234 data-nosnippet>234</a>        <span class="comment">// Открытая эскопнента
-<a href=#235 id=235 data-nosnippet>235</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>e:U512 = U512::from_u64(<span class="number">65537u64</span>);
-<a href=#236 id=236 data-nosnippet>236</a>
-<a href=#237 id=237 data-nosnippet>237</a>        <span class="kw">let </span><span class="kw-2">mut </span>temp:U256;
-<a href=#238 id=238 data-nosnippet>238</a>        <span class="comment">// Проверка, что она удовлетворяет условиям
-<a href=#239 id=239 data-nosnippet>239</a>        </span><span class="kw">while </span>e &gt; phi_n || !<span class="self">Self</span>::coprime(phi_n, e)
-<a href=#240 id=240 data-nosnippet>240</a>        {
-<a href=#241 id=241 data-nosnippet>241</a>            temp = crypto_primes::generate_prime(<span class="number">256</span>);
-<a href=#242 id=242 data-nosnippet>242</a>            e = (U256::ONE).widening_mul(<span class="kw-2">&amp;</span>temp);
-<a href=#243 id=243 data-nosnippet>243</a>        }
+<a href=#224 id=224 data-nosnippet>224</a>        <span class="kw">let </span>q_minus_one = q - U256::ONE;
+<a href=#225 id=225 data-nosnippet>225</a>        <span class="kw">let </span>module: U512 = p.widening_mul(<span class="kw-2">&amp;</span>q);
+<a href=#226 id=226 data-nosnippet>226</a>        <span class="kw">let </span>phi_n: U512 = (p - U256::ONE).widening_mul(<span class="kw-2">&amp;</span>q_minus_one);
+<a href=#227 id=227 data-nosnippet>227</a>
+<a href=#228 id=228 data-nosnippet>228</a>        <span class="comment">// Открытая эскопнента
+<a href=#229 id=229 data-nosnippet>229</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>e:U512 = U512::from_u64(<span class="number">65537u64</span>);
+<a href=#230 id=230 data-nosnippet>230</a>
+<a href=#231 id=231 data-nosnippet>231</a>        <span class="kw">let </span><span class="kw-2">mut </span>temp:U256;
+<a href=#232 id=232 data-nosnippet>232</a>        <span class="comment">// Проверка, что она удовлетворяет условиям
+<a href=#233 id=233 data-nosnippet>233</a>        </span><span class="kw">while </span>e &gt; phi_n || !<span class="self">Self</span>::coprime(phi_n, e)
+<a href=#234 id=234 data-nosnippet>234</a>        {
+<a href=#235 id=235 data-nosnippet>235</a>            temp = crypto_primes::generate_prime(<span class="number">256</span>);
+<a href=#236 id=236 data-nosnippet>236</a>            e = (U256::ONE).widening_mul(<span class="kw-2">&amp;</span>temp);
+<a href=#237 id=237 data-nosnippet>237</a>        }
+<a href=#238 id=238 data-nosnippet>238</a>
+<a href=#239 id=239 data-nosnippet>239</a>        <span class="kw">let </span>d = <span class="self">Self</span>::secret_exp(e, phi_n);
+<a href=#240 id=240 data-nosnippet>240</a>        
+<a href=#241 id=241 data-nosnippet>241</a>        <span class="comment">// println!("p = {p:?}, \nq = {q:?}\n n = {module:?} \ne = {e:?} \nd = {d:?}");
+<a href=#242 id=242 data-nosnippet>242</a>
+<a href=#243 id=243 data-nosnippet>243</a>        </span><span class="kw">let </span>data = RsaData {p, q, n:module, public_key:e, private_key:d};
 <a href=#244 id=244 data-nosnippet>244</a>
-<a href=#245 id=245 data-nosnippet>245</a>        <span class="kw">let </span>d = <span class="self">Self</span>::secret_exp(e, phi_n);
-<a href=#246 id=246 data-nosnippet>246</a>        
-<a href=#247 id=247 data-nosnippet>247</a>        <span class="comment">// println!("p = {p:?}, \nq = {q:?}\n n = {module:?} \ne = {e:?} \nd = {d:?}");
-<a href=#248 id=248 data-nosnippet>248</a>
-<a href=#249 id=249 data-nosnippet>249</a>        </span><span class="kw">let </span>data = RsaData {p, q, n:module, public_key:e, private_key:d};
-<a href=#250 id=250 data-nosnippet>250</a>
-<a href=#251 id=251 data-nosnippet>251</a>        <span class="self">Self</span>::stf(<span class="kw-2">&amp;</span>data);
-<a href=#252 id=252 data-nosnippet>252</a>
-<a href=#253 id=253 data-nosnippet>253</a>        <span class="prelude-val">Ok</span>(data)
-<a href=#254 id=254 data-nosnippet>254</a>    }
-<a href=#255 id=255 data-nosnippet>255</a>
-<a href=#256 id=256 data-nosnippet>256</a>    <span class="doccomment">/// Шифрование с дополнением. Старшие 2 байта нулевые, чтобы m &lt; N. Старший 3 байт обозначает 
-<a href=#257 id=257 data-nosnippet>257</a>    /// число байт дополнения сообщения до 64 байт.
-<a href=#258 id=258 data-nosnippet>258</a>    /// Пример: 00A0000000BACSA...A &lt;- старшие 00, A - число байт дополнения, начало сообщения с байта со значением B. 
-<a href=#259 id=259 data-nosnippet>259</a>    </span><span class="kw">pub fn </span>encryption(<span class="kw-2">&amp;</span><span class="self">self</span>, message:&amp; String) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, String&gt;
-<a href=#260 id=260 data-nosnippet>260</a>    {
-<a href=#261 id=261 data-nosnippet>261</a>        <span class="kw">let </span>path = PathBuf::from(<span class="string">"output_encryption"</span>);
-<a href=#262 id=262 data-nosnippet>262</a>        <span class="kw">let </span><span class="kw-2">mut </span>file = File::create(<span class="kw-2">&amp;</span>path).unwrap();     <span class="comment">// Добавить проверку на создание файла
-<a href=#263 id=263 data-nosnippet>263</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>buf = [<span class="number">0u8</span>; <span class="number">64</span>];
-<a href=#264 id=264 data-nosnippet>264</a>        <span class="kw">let </span><span class="kw-2">mut </span>cipher_text:U512;
+<a href=#245 id=245 data-nosnippet>245</a>        <span class="self">Self</span>::stf(<span class="kw-2">&amp;</span>data);
+<a href=#246 id=246 data-nosnippet>246</a>
+<a href=#247 id=247 data-nosnippet>247</a>        <span class="prelude-val">Ok</span>(data)
+<a href=#248 id=248 data-nosnippet>248</a>    }
+<a href=#249 id=249 data-nosnippet>249</a>
+<a href=#250 id=250 data-nosnippet>250</a>    <span class="doccomment">/// Шифрование с дополнением. Старшие 2 байта нулевые, чтобы m &lt; N. Старший 3 байт обозначает 
+<a href=#251 id=251 data-nosnippet>251</a>    /// число байт дополнения сообщения до 64 байт.
+<a href=#252 id=252 data-nosnippet>252</a>    /// Пример: 00A0000000BACSA...A &lt;- старшие 00, A - число байт дополнения, начало сообщения с байта со значением B. 
+<a href=#253 id=253 data-nosnippet>253</a>    </span><span class="kw">pub fn </span>encryption(<span class="kw-2">&amp;</span><span class="self">self</span>, message:&amp; String) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, String&gt;
+<a href=#254 id=254 data-nosnippet>254</a>    {
+<a href=#255 id=255 data-nosnippet>255</a>        <span class="kw">let </span>path = PathBuf::from(<span class="string">"output_encryption"</span>);
+<a href=#256 id=256 data-nosnippet>256</a>        <span class="kw">let </span><span class="kw-2">mut </span>file = File::create(<span class="kw-2">&amp;</span>path).unwrap();     <span class="comment">// Добавить проверку на создание файла
+<a href=#257 id=257 data-nosnippet>257</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>buf = [<span class="number">0u8</span>; <span class="number">64</span>];
+<a href=#258 id=258 data-nosnippet>258</a>        <span class="kw">let </span><span class="kw-2">mut </span>cipher_text:U512;
+<a href=#259 id=259 data-nosnippet>259</a>
+<a href=#260 id=260 data-nosnippet>260</a>        <span class="comment">// Короткий текст
+<a href=#261 id=261 data-nosnippet>261</a>        </span><span class="kw">if </span>message.len() &lt; <span class="number">64
+<a href=#262 id=262 data-nosnippet>262</a>        </span>{
+<a href=#263 id=263 data-nosnippet>263</a>            buf[<span class="number">2</span>] = <span class="number">64 </span>- message.as_bytes().len() <span class="kw">as </span>u8; <span class="comment">// Число байт дополнения (включая сам этот байт)
+<a href=#264 id=264 data-nosnippet>264</a>            </span>buf[<span class="number">64 </span>- message.as_bytes().len()..].copy_from_slice(message.as_bytes()); <span class="comment">// Вставить в конец сообщение
 <a href=#265 id=265 data-nosnippet>265</a>
-<a href=#266 id=266 data-nosnippet>266</a>        <span class="comment">// Короткий текст
-<a href=#267 id=267 data-nosnippet>267</a>        </span><span class="kw">if </span>message.len() &lt; <span class="number">64
-<a href=#268 id=268 data-nosnippet>268</a>        </span>{
-<a href=#269 id=269 data-nosnippet>269</a>            buf[<span class="number">2</span>] = <span class="number">64 </span>- message.as_bytes().len() <span class="kw">as </span>u8; <span class="comment">// Число байт дополнения (включая сам этот байт)
-<a href=#270 id=270 data-nosnippet>270</a>            </span>buf[<span class="number">64 </span>- message.as_bytes().len()..].copy_from_slice(message.as_bytes()); <span class="comment">// Вставить в конец сообщение
-<a href=#271 id=271 data-nosnippet>271</a>
-<a href=#272 id=272 data-nosnippet>272</a>            </span>cipher_text = U512::from_be_slice(<span class="kw-2">&amp;</span>buf);
-<a href=#273 id=273 data-nosnippet>273</a>            cipher_text = <span class="self">Self</span>::modpow(cipher_text, <span class="self">self</span>.public_key, <span class="self">self</span>.n);
+<a href=#266 id=266 data-nosnippet>266</a>            </span>cipher_text = U512::from_be_slice(<span class="kw-2">&amp;</span>buf);
+<a href=#267 id=267 data-nosnippet>267</a>            cipher_text = <span class="self">Self</span>::modpow(cipher_text, <span class="self">self</span>.public_key, <span class="self">self</span>.n);
+<a href=#268 id=268 data-nosnippet>268</a>
+<a href=#269 id=269 data-nosnippet>269</a>            file.write_all(<span class="kw-2">&amp;</span>cipher_text.to_be_bytes()).unwrap();
+<a href=#270 id=270 data-nosnippet>270</a>        }
+<a href=#271 id=271 data-nosnippet>271</a>        
+<a href=#272 id=272 data-nosnippet>272</a>        <span class="kw">else </span>{
+<a href=#273 id=273 data-nosnippet>273</a>            <span class="kw">let </span>b_message = message.as_bytes();
 <a href=#274 id=274 data-nosnippet>274</a>
-<a href=#275 id=275 data-nosnippet>275</a>            file.write_all(<span class="kw-2">&amp;</span>cipher_text.to_be_bytes()).unwrap();
-<a href=#276 id=276 data-nosnippet>276</a>        }
-<a href=#277 id=277 data-nosnippet>277</a>        
-<a href=#278 id=278 data-nosnippet>278</a>        <span class="kw">else </span>{
-<a href=#279 id=279 data-nosnippet>279</a>            <span class="kw">let </span>b_message = message.as_bytes();
-<a href=#280 id=280 data-nosnippet>280</a>
-<a href=#281 id=281 data-nosnippet>281</a>            <span class="comment">// По 60 байт (text &lt; (512 / 8))
-<a href=#282 id=282 data-nosnippet>282</a>            </span><span class="kw">for </span>bytes <span class="kw">in </span>b_message.chunks(<span class="number">60</span>)
-<a href=#283 id=283 data-nosnippet>283</a>            {
-<a href=#284 id=284 data-nosnippet>284</a>                buf = [<span class="number">0u8</span>; <span class="number">64</span>];
-<a href=#285 id=285 data-nosnippet>285</a>                buf[<span class="number">2</span>] = <span class="number">64 </span>- bytes.len() <span class="kw">as </span>u8;                    <span class="comment">// Число байт дополнения (включая сам этот байт)
-<a href=#286 id=286 data-nosnippet>286</a>                </span>buf[<span class="number">64 </span>- bytes.len()..].copy_from_slice(bytes); <span class="comment">// Вставить в конец сообщение
-<a href=#287 id=287 data-nosnippet>287</a>
-<a href=#288 id=288 data-nosnippet>288</a>                </span>cipher_text = U512::from_be_slice(<span class="kw-2">&amp;</span>buf);
-<a href=#289 id=289 data-nosnippet>289</a>                cipher_text = <span class="self">Self</span>::modpow(cipher_text, <span class="self">self</span>.public_key, <span class="self">self</span>.n);
-<a href=#290 id=290 data-nosnippet>290</a>
-<a href=#291 id=291 data-nosnippet>291</a>                <span class="comment">// Добавить проверку на записанные байты
-<a href=#292 id=292 data-nosnippet>292</a>                </span>file.write_all(<span class="kw-2">&amp;</span>cipher_text.to_be_bytes()).unwrap();
-<a href=#293 id=293 data-nosnippet>293</a>            }
-<a href=#294 id=294 data-nosnippet>294</a>        }
-<a href=#295 id=295 data-nosnippet>295</a>
-<a href=#296 id=296 data-nosnippet>296</a>        <span class="prelude-val">Ok</span>(path)
-<a href=#297 id=297 data-nosnippet>297</a>    }
+<a href=#275 id=275 data-nosnippet>275</a>            <span class="comment">// По 60 байт (text &lt; (512 / 8))
+<a href=#276 id=276 data-nosnippet>276</a>            </span><span class="kw">for </span>bytes <span class="kw">in </span>b_message.chunks(<span class="number">60</span>)
+<a href=#277 id=277 data-nosnippet>277</a>            {
+<a href=#278 id=278 data-nosnippet>278</a>                buf = [<span class="number">0u8</span>; <span class="number">64</span>];
+<a href=#279 id=279 data-nosnippet>279</a>                buf[<span class="number">2</span>] = <span class="number">64 </span>- bytes.len() <span class="kw">as </span>u8;                    <span class="comment">// Число байт дополнения (включая сам этот байт)
+<a href=#280 id=280 data-nosnippet>280</a>                </span>buf[<span class="number">64 </span>- bytes.len()..].copy_from_slice(bytes); <span class="comment">// Вставить в конец сообщение
+<a href=#281 id=281 data-nosnippet>281</a>
+<a href=#282 id=282 data-nosnippet>282</a>                </span>cipher_text = U512::from_be_slice(<span class="kw-2">&amp;</span>buf);
+<a href=#283 id=283 data-nosnippet>283</a>                cipher_text = <span class="self">Self</span>::modpow(cipher_text, <span class="self">self</span>.public_key, <span class="self">self</span>.n);
+<a href=#284 id=284 data-nosnippet>284</a>
+<a href=#285 id=285 data-nosnippet>285</a>                <span class="comment">// Добавить проверку на записанные байты
+<a href=#286 id=286 data-nosnippet>286</a>                </span>file.write_all(<span class="kw-2">&amp;</span>cipher_text.to_be_bytes()).unwrap();
+<a href=#287 id=287 data-nosnippet>287</a>            }
+<a href=#288 id=288 data-nosnippet>288</a>        }
+<a href=#289 id=289 data-nosnippet>289</a>
+<a href=#290 id=290 data-nosnippet>290</a>        <span class="prelude-val">Ok</span>(path)
+<a href=#291 id=291 data-nosnippet>291</a>    }
+<a href=#292 id=292 data-nosnippet>292</a>
+<a href=#293 id=293 data-nosnippet>293</a>    <span class="doccomment">/// Расшифрование происходит по обратной схеме шифрованию. 
+<a href=#294 id=294 data-nosnippet>294</a>    /// Считывается число нулей, добавленных дополнением и они убираются из исходного сообщения.
+<a href=#295 id=295 data-nosnippet>295</a>    </span><span class="kw">pub fn </span>decryption(<span class="kw-2">&amp;</span><span class="self">self</span>, message_path:PathBuf) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, String&gt;
+<a href=#296 id=296 data-nosnippet>296</a>    {
+<a href=#297 id=297 data-nosnippet>297</a>        <span class="kw">let </span>path = PathBuf::from(<span class="string">"output_decrytion"</span>);
 <a href=#298 id=298 data-nosnippet>298</a>
-<a href=#299 id=299 data-nosnippet>299</a>    <span class="doccomment">/// Расшифрование происходит по обратной схеме шифрованию. 
-<a href=#300 id=300 data-nosnippet>300</a>    /// Считывается число нулей, добавленных дополнением и они убираются из исходного сообщения.
-<a href=#301 id=301 data-nosnippet>301</a>    </span><span class="kw">pub fn </span>decryption(<span class="kw-2">&amp;</span><span class="self">self</span>, message_path:PathBuf) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, String&gt;
-<a href=#302 id=302 data-nosnippet>302</a>    {
-<a href=#303 id=303 data-nosnippet>303</a>        <span class="kw">let </span>path = PathBuf::from(<span class="string">"output_decrytion"</span>);
-<a href=#304 id=304 data-nosnippet>304</a>
-<a href=#305 id=305 data-nosnippet>305</a>        <span class="comment">// Добавить проверку на создание файла
-<a href=#306 id=306 data-nosnippet>306</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>file_out = File::create(<span class="kw-2">&amp;</span>path).unwrap();
-<a href=#307 id=307 data-nosnippet>307</a>        <span class="kw">let </span><span class="kw-2">mut </span>file_in = File::open(<span class="kw-2">&amp;</span>message_path).unwrap();
-<a href=#308 id=308 data-nosnippet>308</a>        
-<a href=#309 id=309 data-nosnippet>309</a>        <span class="kw">let </span><span class="kw-2">mut </span>buffer = [<span class="number">0u8</span>; <span class="number">64</span>];
-<a href=#310 id=310 data-nosnippet>310</a>        <span class="kw">let </span><span class="kw-2">mut </span>text:U512;
-<a href=#311 id=311 data-nosnippet>311</a>        <span class="kw">let </span><span class="kw-2">mut </span>padding:usize;
-<a href=#312 id=312 data-nosnippet>312</a>
-<a href=#313 id=313 data-nosnippet>313</a>        <span class="kw">loop </span>{
-<a href=#314 id=314 data-nosnippet>314</a>            <span class="kw">let </span>n = file_in.read(<span class="kw-2">&amp;mut </span>buffer).unwrap();
-<a href=#315 id=315 data-nosnippet>315</a>
-<a href=#316 id=316 data-nosnippet>316</a>            <span class="kw">if </span>n == <span class="number">0 </span>{<span class="kw">break</span>;}
+<a href=#299 id=299 data-nosnippet>299</a>        <span class="comment">// Добавить проверку на создание файла
+<a href=#300 id=300 data-nosnippet>300</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>file_out = File::create(<span class="kw-2">&amp;</span>path).unwrap();
+<a href=#301 id=301 data-nosnippet>301</a>        <span class="kw">let </span><span class="kw-2">mut </span>file_in = File::open(<span class="kw-2">&amp;</span>message_path).unwrap();
+<a href=#302 id=302 data-nosnippet>302</a>        
+<a href=#303 id=303 data-nosnippet>303</a>        <span class="kw">let </span><span class="kw-2">mut </span>buffer = [<span class="number">0u8</span>; <span class="number">64</span>];
+<a href=#304 id=304 data-nosnippet>304</a>        <span class="kw">let </span><span class="kw-2">mut </span>text:U512;
+<a href=#305 id=305 data-nosnippet>305</a>        <span class="kw">let </span><span class="kw-2">mut </span>padding:usize;
+<a href=#306 id=306 data-nosnippet>306</a>
+<a href=#307 id=307 data-nosnippet>307</a>        <span class="kw">loop </span>{
+<a href=#308 id=308 data-nosnippet>308</a>            <span class="kw">let </span>n = file_in.read(<span class="kw-2">&amp;mut </span>buffer).unwrap();
+<a href=#309 id=309 data-nosnippet>309</a>
+<a href=#310 id=310 data-nosnippet>310</a>            <span class="kw">if </span>n == <span class="number">0 </span>{<span class="kw">break</span>;}
+<a href=#311 id=311 data-nosnippet>311</a>
+<a href=#312 id=312 data-nosnippet>312</a>            text = U512::from_be_slice(<span class="kw-2">&amp;</span>buffer);
+<a href=#313 id=313 data-nosnippet>313</a>            text = <span class="self">Self</span>::modpow(text, <span class="self">self</span>.private_key, <span class="self">self</span>.n);
+<a href=#314 id=314 data-nosnippet>314</a>
+<a href=#315 id=315 data-nosnippet>315</a>            <span class="kw">let </span>text_b = text.to_be_bytes();
+<a href=#316 id=316 data-nosnippet>316</a>            padding = <span class="number">64 </span>- text_b[<span class="number">2</span>] <span class="kw">as </span>usize;       <span class="comment">// ПРоверить переполнение
 <a href=#317 id=317 data-nosnippet>317</a>
-<a href=#318 id=318 data-nosnippet>318</a>            text = U512::from_be_slice(<span class="kw-2">&amp;</span>buffer);
-<a href=#319 id=319 data-nosnippet>319</a>            text = <span class="self">Self</span>::modpow(text, <span class="self">self</span>.private_key, <span class="self">self</span>.n);
-<a href=#320 id=320 data-nosnippet>320</a>
-<a href=#321 id=321 data-nosnippet>321</a>            <span class="kw">let </span>text_b = text.to_be_bytes();
-<a href=#322 id=322 data-nosnippet>322</a>            padding = <span class="number">64 </span>- text_b[<span class="number">2</span>] <span class="kw">as </span>usize;       <span class="comment">// ПРоверить переполнение
-<a href=#323 id=323 data-nosnippet>323</a>
-<a href=#324 id=324 data-nosnippet>324</a>            // Добавить проверку на записанные байты
-<a href=#325 id=325 data-nosnippet>325</a>            </span>file_out.write_all(<span class="kw-2">&amp;</span>text_b[<span class="number">64 </span>- padding..]).unwrap(); <span class="comment">// Записать текст без дополнения
-<a href=#326 id=326 data-nosnippet>326</a>        </span>}
-<a href=#327 id=327 data-nosnippet>327</a>
-<a href=#328 id=328 data-nosnippet>328</a>        <span class="prelude-val">Ok</span>(path)
-<a href=#329 id=329 data-nosnippet>329</a>    }
-<a href=#330 id=330 data-nosnippet>330</a>}
-<a href=#331 id=331 data-nosnippet>331</a>
-<a href=#332 id=332 data-nosnippet>332</a><span class="attr">#[derive(Debug)]
-<a href=#333 id=333 data-nosnippet>333</a></span><span class="kw">pub struct </span>RsaDataU32768
-<a href=#334 id=334 data-nosnippet>334</a>{
-<a href=#335 id=335 data-nosnippet>335</a>    <span class="kw">pub </span>p: U16384, <span class="comment">// primary number one
-<a href=#336 id=336 data-nosnippet>336</a>    </span><span class="kw">pub </span>q: U16384, <span class="comment">// primary number two
-<a href=#337 id=337 data-nosnippet>337</a>    </span><span class="kw">pub </span>n: U32768, <span class="comment">// modulus
-<a href=#338 id=338 data-nosnippet>338</a>    </span><span class="kw">pub </span>public_key: U32768, <span class="comment">// e - public exponent
-<a href=#339 id=339 data-nosnippet>339</a>    </span><span class="kw">pub </span>private_key: U32768,<span class="comment">// d - private exponent
-<a href=#340 id=340 data-nosnippet>340</a></span>}
-<a href=#341 id=341 data-nosnippet>341</a>
-<a href=#342 id=342 data-nosnippet>342</a><span class="comment">// Доделать encrypt/decrypt
-<a href=#343 id=343 data-nosnippet>343</a></span><span class="kw">impl </span>RsaDataU32768 {
-<a href=#344 id=344 data-nosnippet>344</a>    <span class="comment">// Проверить на переполнение
-<a href=#345 id=345 data-nosnippet>345</a>    </span><span class="kw">fn </span>mulmod(left: &amp; U32768, rigth: &amp; U32768, modulus: &amp; U32768) -&gt; U32768
-<a href=#346 id=346 data-nosnippet>346</a>    {
-<a href=#347 id=347 data-nosnippet>347</a>        <span class="kw">let </span>left_m = <span class="kw-2">*</span>left % <span class="kw-2">*</span>modulus;
-<a href=#348 id=348 data-nosnippet>348</a>        <span class="kw">let </span>right_m = <span class="kw-2">*</span>rigth % <span class="kw-2">*</span>modulus;
-<a href=#349 id=349 data-nosnippet>349</a>
-<a href=#350 id=350 data-nosnippet>350</a>        (left_m * right_m) % <span class="kw-2">*</span>modulus
-<a href=#351 id=351 data-nosnippet>351</a>    }
-<a href=#352 id=352 data-nosnippet>352</a>
-<a href=#353 id=353 data-nosnippet>353</a>    <span class="comment">// Быстрое возведение в степень и модуль
-<a href=#354 id=354 data-nosnippet>354</a>    </span><span class="kw">fn </span>modpow(<span class="kw-2">mut </span>base: U32768, <span class="kw-2">mut </span>exp: U32768, modulus: U32768) -&gt; U32768 {
-<a href=#355 id=355 data-nosnippet>355</a>        <span class="kw">if </span>modulus == U32768::ONE
-<a href=#356 id=356 data-nosnippet>356</a>        {
-<a href=#357 id=357 data-nosnippet>357</a>            <span class="kw">return </span>U32768::ZERO;
-<a href=#358 id=358 data-nosnippet>358</a>        }
-<a href=#359 id=359 data-nosnippet>359</a>
-<a href=#360 id=360 data-nosnippet>360</a>        <span class="kw">let </span>modulus_nz: NonZero&lt;U32768&gt; = NonZero::new(modulus).expect(<span class="string">"modulus must be nonzero"</span>);
-<a href=#361 id=361 data-nosnippet>361</a>        <span class="kw">let </span><span class="kw-2">mut </span>result: U32768 = U32768::ONE;
-<a href=#362 id=362 data-nosnippet>362</a>        base = base % modulus;
-<a href=#363 id=363 data-nosnippet>363</a>
-<a href=#364 id=364 data-nosnippet>364</a>        <span class="kw">while </span>exp &gt; U32768::ZERO {
-<a href=#365 id=365 data-nosnippet>365</a>            <span class="kw">if </span>exp.is_odd().into() {
-<a href=#366 id=366 data-nosnippet>366</a>                result = <span class="self">Self</span>::mulmod(&amp; result, &amp; base, &amp; modulus_nz); <span class="comment">//.mul_mod(&amp;base, &amp;modulus_nz);
-<a href=#367 id=367 data-nosnippet>367</a>            </span>}
-<a href=#368 id=368 data-nosnippet>368</a>            
-<a href=#369 id=369 data-nosnippet>369</a>            exp = exp &gt;&gt; <span class="number">1</span>;
-<a href=#370 id=370 data-nosnippet>370</a>            base =  <span class="self">Self</span>::mulmod(&amp; base, &amp; base, &amp; modulus_nz);<span class="comment">//base.mul_mod(&amp;base, &amp;modulus_nz);
-<a href=#371 id=371 data-nosnippet>371</a>        </span>}
-<a href=#372 id=372 data-nosnippet>372</a>        result
-<a href=#373 id=373 data-nosnippet>373</a>    }
-<a href=#374 id=374 data-nosnippet>374</a>
-<a href=#375 id=375 data-nosnippet>375</a>    <span class="comment">// Запись данных RSA в файл RsaData
-<a href=#376 id=376 data-nosnippet>376</a>    </span><span class="kw">fn </span>stf(data:<span class="kw-2">&amp;</span>RsaDataU32768)
-<a href=#377 id=377 data-nosnippet>377</a>    {
-<a href=#378 id=378 data-nosnippet>378</a>        <span class="kw">let </span><span class="kw-2">mut </span>file = File::create(<span class="string">"RsaData32768"</span>).unwrap();
-<a href=#379 id=379 data-nosnippet>379</a>        
-<a href=#380 id=380 data-nosnippet>380</a>        <span class="macro">writeln!</span>(file, <span class="string">"p = {}"</span>, data.p).unwrap();
-<a href=#381 id=381 data-nosnippet>381</a>        <span class="macro">writeln!</span>(file, <span class="string">"q = {}"</span>, data.q).unwrap();
-<a href=#382 id=382 data-nosnippet>382</a>        <span class="macro">writeln!</span>(file, <span class="string">"n = {}"</span>, data.n).unwrap();
-<a href=#383 id=383 data-nosnippet>383</a>        <span class="macro">writeln!</span>(file, <span class="string">"public_key = {}"</span>, data.public_key).unwrap();
-<a href=#384 id=384 data-nosnippet>384</a>        <span class="macro">writeln!</span>(file, <span class="string">"private_key = {}"</span>, data.private_key).unwrap();
-<a href=#385 id=385 data-nosnippet>385</a>    }
+<a href=#318 id=318 data-nosnippet>318</a>            // Добавить проверку на записанные байты
+<a href=#319 id=319 data-nosnippet>319</a>            </span>file_out.write_all(<span class="kw-2">&amp;</span>text_b[<span class="number">64 </span>- padding..]).unwrap(); <span class="comment">// Записать текст без дополнения
+<a href=#320 id=320 data-nosnippet>320</a>        </span>}
+<a href=#321 id=321 data-nosnippet>321</a>
+<a href=#322 id=322 data-nosnippet>322</a>        <span class="prelude-val">Ok</span>(path)
+<a href=#323 id=323 data-nosnippet>323</a>    }
+<a href=#324 id=324 data-nosnippet>324</a>}
+<a href=#325 id=325 data-nosnippet>325</a>
+<a href=#326 id=326 data-nosnippet>326</a><span class="attr">#[derive(Debug)]
+<a href=#327 id=327 data-nosnippet>327</a></span><span class="kw">pub struct </span>RsaDataU32768
+<a href=#328 id=328 data-nosnippet>328</a>{
+<a href=#329 id=329 data-nosnippet>329</a>    <span class="kw">pub </span>p: U16384, <span class="comment">// primary number one
+<a href=#330 id=330 data-nosnippet>330</a>    </span><span class="kw">pub </span>q: U16384, <span class="comment">// primary number two
+<a href=#331 id=331 data-nosnippet>331</a>    </span><span class="kw">pub </span>n: U32768, <span class="comment">// modulus
+<a href=#332 id=332 data-nosnippet>332</a>    </span><span class="kw">pub </span>public_key: U32768, <span class="comment">// e - public exponent
+<a href=#333 id=333 data-nosnippet>333</a>    </span><span class="kw">pub </span>private_key: U32768,<span class="comment">// d - private exponent
+<a href=#334 id=334 data-nosnippet>334</a></span>}
+<a href=#335 id=335 data-nosnippet>335</a>
+<a href=#336 id=336 data-nosnippet>336</a><span class="comment">// Доделать encrypt/decrypt
+<a href=#337 id=337 data-nosnippet>337</a></span><span class="kw">impl </span>RsaDataU32768 {
+<a href=#338 id=338 data-nosnippet>338</a>    <span class="comment">// Переполнение
+<a href=#339 id=339 data-nosnippet>339</a>    </span><span class="kw">fn </span>mulmod(left: &amp; U32768, rigth: &amp; U32768, modulus: &amp; U32768) -&gt; U32768
+<a href=#340 id=340 data-nosnippet>340</a>    {
+<a href=#341 id=341 data-nosnippet>341</a>        <span class="kw">let </span>left_m = <span class="kw-2">*</span>left % <span class="kw-2">*</span>modulus;
+<a href=#342 id=342 data-nosnippet>342</a>        <span class="kw">let </span>right_m = <span class="kw-2">*</span>rigth % <span class="kw-2">*</span>modulus;
+<a href=#343 id=343 data-nosnippet>343</a>
+<a href=#344 id=344 data-nosnippet>344</a>        (left_m * right_m) % <span class="kw-2">*</span>modulus
+<a href=#345 id=345 data-nosnippet>345</a>    }
+<a href=#346 id=346 data-nosnippet>346</a>
+<a href=#347 id=347 data-nosnippet>347</a>    <span class="comment">// Быстрое возведение в степень и модуль
+<a href=#348 id=348 data-nosnippet>348</a>    </span><span class="kw">fn </span>modpow(<span class="kw-2">mut </span>base: U32768, <span class="kw-2">mut </span>exp: U32768, modulus: U32768) -&gt; U32768 {
+<a href=#349 id=349 data-nosnippet>349</a>        <span class="kw">if </span>modulus == U32768::ONE
+<a href=#350 id=350 data-nosnippet>350</a>        {
+<a href=#351 id=351 data-nosnippet>351</a>            <span class="kw">return </span>U32768::ZERO;
+<a href=#352 id=352 data-nosnippet>352</a>        }
+<a href=#353 id=353 data-nosnippet>353</a>
+<a href=#354 id=354 data-nosnippet>354</a>        <span class="kw">let </span>modulus_nz: NonZero&lt;U32768&gt; = NonZero::new(modulus).expect(<span class="string">"modulus must be nonzero"</span>);
+<a href=#355 id=355 data-nosnippet>355</a>        <span class="kw">let </span><span class="kw-2">mut </span>result: U32768 = U32768::ONE;
+<a href=#356 id=356 data-nosnippet>356</a>        base = base % modulus;
+<a href=#357 id=357 data-nosnippet>357</a>
+<a href=#358 id=358 data-nosnippet>358</a>        <span class="kw">while </span>exp &gt; U32768::ZERO {
+<a href=#359 id=359 data-nosnippet>359</a>            <span class="kw">if </span>exp.is_odd().into() {
+<a href=#360 id=360 data-nosnippet>360</a>                result = <span class="self">Self</span>::mulmod(&amp; result, &amp; base, &amp; modulus_nz); <span class="comment">//.mul_mod(&amp;base, &amp;modulus_nz);
+<a href=#361 id=361 data-nosnippet>361</a>            </span>}
+<a href=#362 id=362 data-nosnippet>362</a>
+<a href=#363 id=363 data-nosnippet>363</a>            exp = exp &gt;&gt; <span class="number">1</span>;
+<a href=#364 id=364 data-nosnippet>364</a>
+<a href=#365 id=365 data-nosnippet>365</a>            base = <span class="self">Self</span>::mulmod(&amp; base, &amp; base, &amp; modulus_nz);<span class="comment">//base.mul_mod(&amp;base, &amp;modulus_nz);
+<a href=#366 id=366 data-nosnippet>366</a>        </span>}
+<a href=#367 id=367 data-nosnippet>367</a>        result
+<a href=#368 id=368 data-nosnippet>368</a>    }
+<a href=#369 id=369 data-nosnippet>369</a>
+<a href=#370 id=370 data-nosnippet>370</a>    <span class="comment">// Запись данных RSA в файл RsaData
+<a href=#371 id=371 data-nosnippet>371</a>    </span><span class="kw">fn </span>stf(data:<span class="kw-2">&amp;</span>RsaDataU32768)
+<a href=#372 id=372 data-nosnippet>372</a>    {
+<a href=#373 id=373 data-nosnippet>373</a>        <span class="kw">let </span><span class="kw-2">mut </span>file = File::create(<span class="string">"RsaData32768"</span>).unwrap();
+<a href=#374 id=374 data-nosnippet>374</a>        
+<a href=#375 id=375 data-nosnippet>375</a>        <span class="macro">writeln!</span>(file, <span class="string">"p = {}"</span>, data.p).unwrap();
+<a href=#376 id=376 data-nosnippet>376</a>        <span class="macro">writeln!</span>(file, <span class="string">"q = {}"</span>, data.q).unwrap();
+<a href=#377 id=377 data-nosnippet>377</a>        <span class="macro">writeln!</span>(file, <span class="string">"n = {}"</span>, data.n).unwrap();
+<a href=#378 id=378 data-nosnippet>378</a>        <span class="macro">writeln!</span>(file, <span class="string">"public_key = {}"</span>, data.public_key).unwrap();
+<a href=#379 id=379 data-nosnippet>379</a>        <span class="macro">writeln!</span>(file, <span class="string">"private_key = {}"</span>, data.private_key).unwrap();
+<a href=#380 id=380 data-nosnippet>380</a>    }
+<a href=#381 id=381 data-nosnippet>381</a>
+<a href=#382 id=382 data-nosnippet>382</a>    <span class="kw">fn </span>get_bpn() -&gt; (U16384, U16384)
+<a href=#383 id=383 data-nosnippet>383</a>    {
+<a href=#384 id=384 data-nosnippet>384</a>        <span class="kw">let </span>p;
+<a href=#385 id=385 data-nosnippet>385</a>        <span class="kw">let </span>q;
 <a href=#386 id=386 data-nosnippet>386</a>
-<a href=#387 id=387 data-nosnippet>387</a>    <span class="kw">fn </span>get_bpn() -&gt; (U16384, U16384)
-<a href=#388 id=388 data-nosnippet>388</a>    {
-<a href=#389 id=389 data-nosnippet>389</a>        <span class="kw">let </span>p;
-<a href=#390 id=390 data-nosnippet>390</a>        <span class="kw">let </span>q;
-<a href=#391 id=391 data-nosnippet>391</a>
-<a href=#392 id=392 data-nosnippet>392</a>        <span class="comment">// p = Uint::&lt;LIMBS&gt;::random(&amp;mut OsRng);
-<a href=#393 id=393 data-nosnippet>393</a>        // q = Uint::&lt;LIMBS&gt;::random(&amp;mut OsRng);
-<a href=#394 id=394 data-nosnippet>394</a>        
-<a href=#395 id=395 data-nosnippet>395</a>        // RsaData::bpn_check(p);
-<a href=#396 id=396 data-nosnippet>396</a>        // RsaData::bpn_check(q);
-<a href=#397 id=397 data-nosnippet>397</a>        
-<a href=#398 id=398 data-nosnippet>398</a>        </span>p = crypto_primes::par_generate_prime(<span class="number">16384</span>, <span class="number">8</span>); <span class="comment">//crypto_primes::generate_prime(16384);
-<a href=#399 id=399 data-nosnippet>399</a>        </span>q = crypto_primes::par_generate_prime(<span class="number">16384</span>, <span class="number">8</span>); <span class="comment">//crypto_primes::generate_prime(16384);
-<a href=#400 id=400 data-nosnippet>400</a>        // println!("p={p:?} \nq={q:?}\n");
-<a href=#401 id=401 data-nosnippet>401</a>
-<a href=#402 id=402 data-nosnippet>402</a>        </span>(p, q)
-<a href=#403 id=403 data-nosnippet>403</a>    }
+<a href=#387 id=387 data-nosnippet>387</a>        <span class="comment">// p = Uint::&lt;LIMBS&gt;::random(&amp;mut OsRng);
+<a href=#388 id=388 data-nosnippet>388</a>        // q = Uint::&lt;LIMBS&gt;::random(&amp;mut OsRng);
+<a href=#389 id=389 data-nosnippet>389</a>        
+<a href=#390 id=390 data-nosnippet>390</a>        // RsaData::bpn_check(p);
+<a href=#391 id=391 data-nosnippet>391</a>        // RsaData::bpn_check(q);
+<a href=#392 id=392 data-nosnippet>392</a>        
+<a href=#393 id=393 data-nosnippet>393</a>        </span>p = crypto_primes::par_generate_prime(<span class="number">16384</span>, <span class="number">8</span>); <span class="comment">//crypto_primes::generate_prime(16384);
+<a href=#394 id=394 data-nosnippet>394</a>        </span>q = crypto_primes::par_generate_prime(<span class="number">16384</span>, <span class="number">8</span>); <span class="comment">//crypto_primes::generate_prime(16384);
+<a href=#395 id=395 data-nosnippet>395</a>        // println!("p={p:?} \nq={q:?}\n");
+<a href=#396 id=396 data-nosnippet>396</a>
+<a href=#397 id=397 data-nosnippet>397</a>        </span>(p, q)
+<a href=#398 id=398 data-nosnippet>398</a>    }
+<a href=#399 id=399 data-nosnippet>399</a>
+<a href=#400 id=400 data-nosnippet>400</a>    <span class="kw">pub fn </span>coprime(<span class="kw-2">mut </span>a:U32768, <span class="kw-2">mut </span>b:U32768) -&gt; bool
+<a href=#401 id=401 data-nosnippet>401</a>    {
+<a href=#402 id=402 data-nosnippet>402</a>        <span class="comment">// Евклида Алгоритм
+<a href=#403 id=403 data-nosnippet>403</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>r = U32768::ONE;
 <a href=#404 id=404 data-nosnippet>404</a>
-<a href=#405 id=405 data-nosnippet>405</a>    <span class="kw">fn </span>coprime(<span class="kw-2">mut </span>a:U32768, <span class="kw-2">mut </span>b:U32768) -&gt; bool
-<a href=#406 id=406 data-nosnippet>406</a>    {
-<a href=#407 id=407 data-nosnippet>407</a>        <span class="comment">// Евклида Алгоритм
-<a href=#408 id=408 data-nosnippet>408</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>r = U32768::ONE;
-<a href=#409 id=409 data-nosnippet>409</a>
-<a href=#410 id=410 data-nosnippet>410</a>        <span class="kw">while </span>r != U32768::ZERO 
-<a href=#411 id=411 data-nosnippet>411</a>        {
-<a href=#412 id=412 data-nosnippet>412</a>            r = b % a;       
-<a href=#413 id=413 data-nosnippet>413</a>            b = a;
-<a href=#414 id=414 data-nosnippet>414</a>            a = r;   
-<a href=#415 id=415 data-nosnippet>415</a>        }
-<a href=#416 id=416 data-nosnippet>416</a>
-<a href=#417 id=417 data-nosnippet>417</a>        <span class="kw">if </span>b == U32768::ONE {<span class="bool-val">true</span>}
-<a href=#418 id=418 data-nosnippet>418</a>        <span class="kw">else </span>{<span class="bool-val">false</span>}
-<a href=#419 id=419 data-nosnippet>419</a>    }
-<a href=#420 id=420 data-nosnippet>420</a>
-<a href=#421 id=421 data-nosnippet>421</a>    <span class="kw">fn </span>secret_exp(e:U32768, phi_n:U32768) -&gt; U32768
-<a href=#422 id=422 data-nosnippet>422</a>    {
-<a href=#423 id=423 data-nosnippet>423</a>        <span class="comment">// let (_, d, _) = Self::extended_gcd(e, phi_n);
-<a href=#424 id=424 data-nosnippet>424</a>        </span>e.inv_mod(<span class="kw-2">&amp;</span>phi_n).unwrap()
-<a href=#425 id=425 data-nosnippet>425</a>    }
+<a href=#405 id=405 data-nosnippet>405</a>        <span class="kw">while </span>r != U32768::ZERO 
+<a href=#406 id=406 data-nosnippet>406</a>        {
+<a href=#407 id=407 data-nosnippet>407</a>            r = b % a;       
+<a href=#408 id=408 data-nosnippet>408</a>            b = a;
+<a href=#409 id=409 data-nosnippet>409</a>            a = r;   
+<a href=#410 id=410 data-nosnippet>410</a>        }
+<a href=#411 id=411 data-nosnippet>411</a>
+<a href=#412 id=412 data-nosnippet>412</a>        <span class="kw">if </span>b == U32768::ONE {<span class="bool-val">true</span>}
+<a href=#413 id=413 data-nosnippet>413</a>        <span class="kw">else </span>{<span class="bool-val">false</span>}
+<a href=#414 id=414 data-nosnippet>414</a>    }
+<a href=#415 id=415 data-nosnippet>415</a>
+<a href=#416 id=416 data-nosnippet>416</a>    <span class="kw">fn </span>secret_exp(e:U32768, phi_n:U32768) -&gt; U32768
+<a href=#417 id=417 data-nosnippet>417</a>    {
+<a href=#418 id=418 data-nosnippet>418</a>        <span class="comment">// let (_, d, _) = Self::extended_gcd(e, phi_n);
+<a href=#419 id=419 data-nosnippet>419</a>        </span>e.inv_mod(<span class="kw-2">&amp;</span>phi_n).unwrap()
+<a href=#420 id=420 data-nosnippet>420</a>    }
+<a href=#421 id=421 data-nosnippet>421</a>
+<a href=#422 id=422 data-nosnippet>422</a>    <span class="comment">// Генерация ключей длиной 32768 бит
+<a href=#423 id=423 data-nosnippet>423</a>    </span><span class="kw">pub fn </span>rsa_32768() -&gt; <span class="prelude-ty">Result</span>&lt;RsaDataU32768, String&gt;
+<a href=#424 id=424 data-nosnippet>424</a>    {
+<a href=#425 id=425 data-nosnippet>425</a>        <span class="kw">let </span>(p, q) = RsaDataU32768::get_bpn();
 <a href=#426 id=426 data-nosnippet>426</a>
-<a href=#427 id=427 data-nosnippet>427</a>    <span class="comment">// Генерация ключей длиной 32768 бит
-<a href=#428 id=428 data-nosnippet>428</a>    </span><span class="kw">pub fn </span>rsa_32768() -&gt; <span class="prelude-ty">Result</span>&lt;RsaDataU32768, String&gt;
-<a href=#429 id=429 data-nosnippet>429</a>    {
-<a href=#430 id=430 data-nosnippet>430</a>        <span class="kw">let </span>(p, q) = RsaDataU32768::get_bpn();
-<a href=#431 id=431 data-nosnippet>431</a>
-<a href=#432 id=432 data-nosnippet>432</a>        <span class="kw">let </span>p_wide: U32768 = p.resize();
-<a href=#433 id=433 data-nosnippet>433</a>        <span class="kw">let </span>q_wide: U32768 = q.resize();
+<a href=#427 id=427 data-nosnippet>427</a>        <span class="kw">let </span>p_wide: U32768 = p.resize();
+<a href=#428 id=428 data-nosnippet>428</a>        <span class="kw">let </span>q_wide: U32768 = q.resize();
+<a href=#429 id=429 data-nosnippet>429</a>
+<a href=#430 id=430 data-nosnippet>430</a>        <span class="comment">// phi_n = (p-1)*(q-1)
+<a href=#431 id=431 data-nosnippet>431</a>        // n = p*q
+<a href=#432 id=432 data-nosnippet>432</a>        </span><span class="kw">let </span>phi_n: U32768 = (p_wide - U32768::ONE) * (q_wide - U32768::ONE); 
+<a href=#433 id=433 data-nosnippet>433</a>        <span class="kw">let </span>module: U32768 = p_wide * q_wide;
 <a href=#434 id=434 data-nosnippet>434</a>
-<a href=#435 id=435 data-nosnippet>435</a>        <span class="comment">// phi_n = (p-1)*(q-1)
-<a href=#436 id=436 data-nosnippet>436</a>        // n = p*q
-<a href=#437 id=437 data-nosnippet>437</a>        </span><span class="kw">let </span>phi_n: U32768 = (p_wide - U32768::ONE) * (q_wide - U32768::ONE); 
-<a href=#438 id=438 data-nosnippet>438</a>        <span class="kw">let </span>module: U32768 = p_wide * q_wide;
-<a href=#439 id=439 data-nosnippet>439</a>
-<a href=#440 id=440 data-nosnippet>440</a>        <span class="comment">// Открытая эскопнента
-<a href=#441 id=441 data-nosnippet>441</a>        </span><span class="kw">let </span>e:U32768 = U32768::from_u64(<span class="number">65537u64</span>);
-<a href=#442 id=442 data-nosnippet>442</a>
-<a href=#443 id=443 data-nosnippet>443</a>        <span class="comment">// let mut temp:U16384;
-<a href=#444 id=444 data-nosnippet>444</a>        // // Проверка, что она удовлетворяет условиям
-<a href=#445 id=445 data-nosnippet>445</a>        // while e &gt; phi_n || !Self::coprime(phi_n, e)
-<a href=#446 id=446 data-nosnippet>446</a>        // {
-<a href=#447 id=447 data-nosnippet>447</a>        //     temp = crypto_primes::generate_prime(16384);
-<a href=#448 id=448 data-nosnippet>448</a>        //     e = temp.resize();
-<a href=#449 id=449 data-nosnippet>449</a>        // }
-<a href=#450 id=450 data-nosnippet>450</a>
-<a href=#451 id=451 data-nosnippet>451</a>        </span><span class="kw">let </span>d = <span class="self">Self</span>::secret_exp(e, phi_n);
-<a href=#452 id=452 data-nosnippet>452</a>        
-<a href=#453 id=453 data-nosnippet>453</a>        <span class="comment">// println!("p = {p:?}, \nq = {q:?}\n n = {module:?} \ne = {e:?} \nd = {d:?}");
-<a href=#454 id=454 data-nosnippet>454</a>
-<a href=#455 id=455 data-nosnippet>455</a>        </span><span class="kw">let </span>data = RsaDataU32768 {p, q, n:module, public_key:e, private_key:d};
+<a href=#435 id=435 data-nosnippet>435</a>        <span class="comment">// Открытая эскопнента
+<a href=#436 id=436 data-nosnippet>436</a>        </span><span class="kw">let </span>e:U32768 = U32768::from_u64(<span class="number">65537u64</span>);
+<a href=#437 id=437 data-nosnippet>437</a>
+<a href=#438 id=438 data-nosnippet>438</a>        <span class="comment">// let mut temp:U16384;
+<a href=#439 id=439 data-nosnippet>439</a>        // // Проверка, что она удовлетворяет условиям
+<a href=#440 id=440 data-nosnippet>440</a>        // while e &gt; phi_n || !Self::coprime(phi_n, e)
+<a href=#441 id=441 data-nosnippet>441</a>        // {
+<a href=#442 id=442 data-nosnippet>442</a>        //     temp = crypto_primes::generate_prime(16384);
+<a href=#443 id=443 data-nosnippet>443</a>        //     e = temp.resize();
+<a href=#444 id=444 data-nosnippet>444</a>        // }
+<a href=#445 id=445 data-nosnippet>445</a>
+<a href=#446 id=446 data-nosnippet>446</a>        </span><span class="kw">let </span>d = <span class="self">Self</span>::secret_exp(e, phi_n);
+<a href=#447 id=447 data-nosnippet>447</a>        
+<a href=#448 id=448 data-nosnippet>448</a>        <span class="comment">// println!("p = {p:?}, \nq = {q:?}\n n = {module:?} \ne = {e:?} \nd = {d:?}");
+<a href=#449 id=449 data-nosnippet>449</a>
+<a href=#450 id=450 data-nosnippet>450</a>        </span><span class="kw">let </span>data = RsaDataU32768 {p, q, n:module, public_key:e, private_key:d};
+<a href=#451 id=451 data-nosnippet>451</a>
+<a href=#452 id=452 data-nosnippet>452</a>        <span class="self">Self</span>::stf(<span class="kw-2">&amp;</span>data);
+<a href=#453 id=453 data-nosnippet>453</a>
+<a href=#454 id=454 data-nosnippet>454</a>        <span class="prelude-val">Ok</span>(data)
+<a href=#455 id=455 data-nosnippet>455</a>    }
 <a href=#456 id=456 data-nosnippet>456</a>
-<a href=#457 id=457 data-nosnippet>457</a>        <span class="self">Self</span>::stf(<span class="kw-2">&amp;</span>data);
-<a href=#458 id=458 data-nosnippet>458</a>
-<a href=#459 id=459 data-nosnippet>459</a>        <span class="prelude-val">Ok</span>(data)
-<a href=#460 id=460 data-nosnippet>460</a>    }
-<a href=#461 id=461 data-nosnippet>461</a>}
-<a href=#462 id=462 data-nosnippet>462</a>
-<a href=#463 id=463 data-nosnippet>463</a>
-<a href=#464 id=464 data-nosnippet>464</a><span class="doccomment">/// Модуль тестов запускать последовательно, так как пишутся результаты в один файл
-<a href=#465 id=465 data-nosnippet>465</a>/// и это может вызвать неправильные результаты и соответственно интепретацию результатов.
-<a href=#466 id=466 data-nosnippet>466</a>/// # Пример
-<a href=#467 id=467 data-nosnippet>467</a>/// ```
-<a href=#468 id=468 data-nosnippet>468</a>/// cargo test -- --test-threads=1
-<a href=#469 id=469 data-nosnippet>469</a>/// ```
-<a href=#470 id=470 data-nosnippet>470</a></span><span class="attr">#[cfg(test)]
-<a href=#471 id=471 data-nosnippet>471</a></span><span class="kw">mod </span>tests {
-<a href=#472 id=472 data-nosnippet>472</a>    <span class="kw">use </span>core::panic::PanicMessage;
+<a href=#457 id=457 data-nosnippet>457</a>    <span class="doccomment">/// Шифрование с дополнением. Старшие 2 байта нулевые, чтобы m &lt; N. Старший 3 байт обозначает 
+<a href=#458 id=458 data-nosnippet>458</a>    /// число байт дополнения сообщения до 64 байт.
+<a href=#459 id=459 data-nosnippet>459</a>    /// Пример: 00A0000000BACSA...A &lt;- старшие 00, A - число байт дополнения, начало сообщения с байта со значением B. 
+<a href=#460 id=460 data-nosnippet>460</a>    </span><span class="kw">pub fn </span>encryption(<span class="kw-2">&amp;</span><span class="self">self</span>, message:&amp; String) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, String&gt;
+<a href=#461 id=461 data-nosnippet>461</a>    {
+<a href=#462 id=462 data-nosnippet>462</a>        <span class="kw">let </span>path = PathBuf::from(<span class="string">"output_encryption"</span>);
+<a href=#463 id=463 data-nosnippet>463</a>        <span class="kw">let </span><span class="kw-2">mut </span>file = File::create(<span class="kw-2">&amp;</span>path).unwrap();     <span class="comment">// Добавить проверку на создание файла
+<a href=#464 id=464 data-nosnippet>464</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>buf = [<span class="number">0u8</span>; <span class="number">4096</span>];
+<a href=#465 id=465 data-nosnippet>465</a>        <span class="kw">let </span><span class="kw-2">mut </span>cipher_text:U32768;
+<a href=#466 id=466 data-nosnippet>466</a>
+<a href=#467 id=467 data-nosnippet>467</a>        <span class="comment">// Короткий текст
+<a href=#468 id=468 data-nosnippet>468</a>        </span><span class="kw">if </span>message.len() &lt; <span class="number">4096
+<a href=#469 id=469 data-nosnippet>469</a>        </span>{
+<a href=#470 id=470 data-nosnippet>470</a>            <span class="kw">let </span>pad_len = <span class="number">4096 </span>- message.len();
+<a href=#471 id=471 data-nosnippet>471</a>            buf[<span class="number">2</span>] = (pad_len / <span class="number">256</span>) <span class="kw">as </span>u8; <span class="comment">// Число байт дополнения 
+<a href=#472 id=472 data-nosnippet>472</a>            </span>buf[<span class="number">3</span>] = (pad_len % <span class="number">256</span>) <span class="kw">as </span>u8; <span class="comment">// Число байт дополнения (включая сам этот байт)
 <a href=#473 id=473 data-nosnippet>473</a>
-<a href=#474 id=474 data-nosnippet>474</a>    <span class="comment">// Note this useful idiom: importing names from outer (for mod tests) scope.
-<a href=#475 id=475 data-nosnippet>475</a>    </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#476 id=476 data-nosnippet>476</a>
-<a href=#477 id=477 data-nosnippet>477</a>    <span class="comment">// Предрассчитанные ключи
-<a href=#478 id=478 data-nosnippet>478</a>    // let p_bytes = hex_to_bytes("E6B42BCB8FAA28DDDC0600AB7AE17DA86C8D380C2D1F8E138190D2BBA693D411");
-<a href=#479 id=479 data-nosnippet>479</a>    // let q_bytes = hex_to_bytes("A23E4E6073B17209E8F56CFBDCAE306C196CEF4DEE779F2B69D74FA51F380731");
-<a href=#480 id=480 data-nosnippet>480</a>    // let n_bytes = hex_to_bytes("923629FB3D61C431E6486B96222C55EA6B5AB23D557DC723185F6632A4A07D39CD68C637A037E74023C8897CAE1D029EE2520741449F0CD0A3B3BC725FD00E41");
-<a href=#481 id=481 data-nosnippet>481</a>    // let pb_bytes = hex_to_bytes("00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010001");
-<a href=#482 id=482 data-nosnippet>482</a>    // let pvk_bytes = hex_to_bytes("89E0FE11E8BE8B6FAB03DC410614DD2864F870611A7FB40CCA6D1C48E1AA5EAB7314437E27FC2F1A9EBBB965A36B3FB00288F3A25FB50705B9CFC1889BBF1E01");
+<a href=#474 id=474 data-nosnippet>474</a>            </span>buf[pad_len..].copy_from_slice(message.as_bytes()); <span class="comment">// Вставить в конец сообщение
+<a href=#475 id=475 data-nosnippet>475</a>
+<a href=#476 id=476 data-nosnippet>476</a>            </span>cipher_text = U32768::from_be_slice(<span class="kw-2">&amp;</span>buf);
+<a href=#477 id=477 data-nosnippet>477</a>            cipher_text = <span class="self">Self</span>::modpow(cipher_text, <span class="self">self</span>.public_key, <span class="self">self</span>.n);
+<a href=#478 id=478 data-nosnippet>478</a>
+<a href=#479 id=479 data-nosnippet>479</a>            file.write_all(<span class="kw-2">&amp;</span>cipher_text.to_be_bytes()).unwrap();
+<a href=#480 id=480 data-nosnippet>480</a>        }
+<a href=#481 id=481 data-nosnippet>481</a>        <span class="kw">else </span>{
+<a href=#482 id=482 data-nosnippet>482</a>            <span class="kw">let </span>b_message = message.as_bytes();
 <a href=#483 id=483 data-nosnippet>483</a>
-<a href=#484 id=484 data-nosnippet>484</a>    // Выполнение RSA шифрования и расшифрования
-<a href=#485 id=485 data-nosnippet>485</a>    // let temp = RsaData{p, q, n, public_key, private_key};
-<a href=#486 id=486 data-nosnippet>486</a>    // let message: String = "Hello fucking WORLD LICK MY ASS".to_string();
-<a href=#487 id=487 data-nosnippet>487</a>    // temp.encryption(message.clone());
-<a href=#488 id=488 data-nosnippet>488</a>    // temp.decryption(message);
-<a href=#489 id=489 data-nosnippet>489</a>
-<a href=#490 id=490 data-nosnippet>490</a>    </span><span class="attr">#[test]
-<a href=#491 id=491 data-nosnippet>491</a>    </span><span class="kw">fn </span>test_rsa_short_message_encryption_decryption() -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
-<a href=#492 id=492 data-nosnippet>492</a>        <span class="kw">let </span>data = RsaData::rsa_512()<span class="question-mark">?</span>;
+<a href=#484 id=484 data-nosnippet>484</a>            <span class="comment">// По 4092 байт (text &lt; (32768 / 8))
+<a href=#485 id=485 data-nosnippet>485</a>            </span><span class="kw">for </span>bytes <span class="kw">in </span>b_message.chunks(<span class="number">4092</span>)
+<a href=#486 id=486 data-nosnippet>486</a>            {
+<a href=#487 id=487 data-nosnippet>487</a>                <span class="kw">let </span>pad_len = <span class="number">4096 </span>- message.len();
+<a href=#488 id=488 data-nosnippet>488</a>
+<a href=#489 id=489 data-nosnippet>489</a>                buf = [<span class="number">0u8</span>; <span class="number">4096</span>];
+<a href=#490 id=490 data-nosnippet>490</a>                buf[<span class="number">2</span>] = (pad_len / <span class="number">256</span>) <span class="kw">as </span>u8; <span class="comment">// Число байт дополнения 
+<a href=#491 id=491 data-nosnippet>491</a>                </span>buf[<span class="number">3</span>] = (pad_len % <span class="number">256</span>) <span class="kw">as </span>u8; <span class="comment">// Число байт дополнения (включая сам этот байт)
+<a href=#492 id=492 data-nosnippet>492</a>                </span>buf[pad_len..].copy_from_slice(bytes); <span class="comment">// Вставить в конец сообщение
 <a href=#493 id=493 data-nosnippet>493</a>
-<a href=#494 id=494 data-nosnippet>494</a>        <span class="kw">let </span>message = <span class="string">"Hello World!!!"</span>.to_string();
-<a href=#495 id=495 data-nosnippet>495</a>
-<a href=#496 id=496 data-nosnippet>496</a>        <span class="kw">let </span>encryption_path = data.encryption(&amp; message)<span class="question-mark">?</span>;
-<a href=#497 id=497 data-nosnippet>497</a>        <span class="kw">let </span>decryption_path = data.decryption(encryption_path)<span class="question-mark">?</span>;
-<a href=#498 id=498 data-nosnippet>498</a>
-<a href=#499 id=499 data-nosnippet>499</a>        <span class="kw">let </span><span class="kw-2">mut </span>file_in = File::open(decryption_path).unwrap();
-<a href=#500 id=500 data-nosnippet>500</a>        
-<a href=#501 id=501 data-nosnippet>501</a>        <span class="kw">let </span><span class="kw-2">mut </span>text_vec = Vec::new();
-<a href=#502 id=502 data-nosnippet>502</a>        file_in.read_to_end(&amp; <span class="kw-2">mut </span>text_vec).expect(<span class="string">"Ошибка чтения файла до конца"</span>);
-<a href=#503 id=503 data-nosnippet>503</a>
-<a href=#504 id=504 data-nosnippet>504</a>        <span class="kw">let </span>text_str = String::from_utf8(text_vec.to_vec()).unwrap();
-<a href=#505 id=505 data-nosnippet>505</a>
-<a href=#506 id=506 data-nosnippet>506</a>        <span class="macro">assert_eq!</span>(message, text_str);
-<a href=#507 id=507 data-nosnippet>507</a>
-<a href=#508 id=508 data-nosnippet>508</a>        <span class="prelude-val">Ok</span>(())
-<a href=#509 id=509 data-nosnippet>509</a>    }
+<a href=#494 id=494 data-nosnippet>494</a>                </span>cipher_text = U32768::from_be_slice(<span class="kw-2">&amp;</span>buf);
+<a href=#495 id=495 data-nosnippet>495</a>                cipher_text = <span class="self">Self</span>::modpow(cipher_text, <span class="self">self</span>.public_key, <span class="self">self</span>.n);
+<a href=#496 id=496 data-nosnippet>496</a>
+<a href=#497 id=497 data-nosnippet>497</a>                <span class="comment">// Добавить проверку на записанные байты
+<a href=#498 id=498 data-nosnippet>498</a>                </span>file.write_all(<span class="kw-2">&amp;</span>cipher_text.to_be_bytes()).unwrap();
+<a href=#499 id=499 data-nosnippet>499</a>            }
+<a href=#500 id=500 data-nosnippet>500</a>        }
+<a href=#501 id=501 data-nosnippet>501</a>
+<a href=#502 id=502 data-nosnippet>502</a>        <span class="prelude-val">Ok</span>(path)
+<a href=#503 id=503 data-nosnippet>503</a>    }
+<a href=#504 id=504 data-nosnippet>504</a>
+<a href=#505 id=505 data-nosnippet>505</a>    <span class="doccomment">/// Расшифрование происходит по обратной схеме шифрованию. 
+<a href=#506 id=506 data-nosnippet>506</a>    /// Считывается число нулей, добавленных дополнением и они убираются из исходного сообщения.
+<a href=#507 id=507 data-nosnippet>507</a>    </span><span class="kw">pub fn </span>decryption(<span class="kw-2">&amp;</span><span class="self">self</span>, message_path:PathBuf) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, String&gt;
+<a href=#508 id=508 data-nosnippet>508</a>    {
+<a href=#509 id=509 data-nosnippet>509</a>        <span class="kw">let </span>path = PathBuf::from(<span class="string">"output_decrytion"</span>);
 <a href=#510 id=510 data-nosnippet>510</a>
-<a href=#511 id=511 data-nosnippet>511</a>    <span class="attr">#[test]
-<a href=#512 id=512 data-nosnippet>512</a>    </span><span class="kw">fn </span>test_rsa_long_message_encryption_decryption() -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
-<a href=#513 id=513 data-nosnippet>513</a>        <span class="kw">let </span>data = RsaData::rsa_512()<span class="question-mark">?</span>;
-<a href=#514 id=514 data-nosnippet>514</a>
-<a href=#515 id=515 data-nosnippet>515</a>        <span class="kw">let </span>message = <span class="string">"Вино губит телесное здоровье людей, губит умственные способности, губит благосостояние семей и, что всего ужаснее, губит душу людей и их потомство, и, несмотря на это, с каждым годом все больше и больше распространяется употребление спиртных напитков и происходящее от него пьянство. Заразная болезнь захватывает все больше и больше людей: пьют уже женщины, девушки, дети. И взрослые не только не мешают этому отравлению, но, сами пьяные, поощряют их. И богатым, и бедным представляется, что веселым нельзя иначе быть, как пьяным или полупьяным, представляется, что при всяком важном случае жизни: похоронах, свадьбе, крестинах, разлуке, свидании — самое лучшее средство показать свое горе или радость состоит в том, чтобы одурманиться и, лишившись человеческого образа, уподобиться животному. И что удивительнее всего, это то, что люди гибнут от пьянства и губят других, сами не зная, зачем они это делают. В самом деле, если каждый спросит себя, для чего люди пьют, он никак не найдет никакого ответа. Сказать, что вино вкусно, нельзя, потому что каждый знает, что вино и пиво, если они не подслащены, кажутся неприятными для тех, кто их пьет в первый раз. К вину приучаются, как к другому яду, табаку, понемногу, и нравится вино только после того, как человек привыкнет к тому опьянению, которое оно производит. Сказать, что вино полезно для здоровья, тоже никак нельзя теперь, когда многие доктора, занимаясь этим делом, признали, что ни водка, ни вино, ни пиво не могут быть здоровы, потому что питательности в них нет, а есть только яд, который вреден. Сказать, что вино прибавляет силы, тоже , нельзя, потому что не раз и не два, а сотни раз было замечено, что артель пьющая в столько же людей, как и артель непьющая, сработает много меньше. И на сотнях и тысячах людей можно заметить, что люди, пьющие одну воду, сильнее и здоровее тех, которые пьют вино. Говорят тоже, что вино греет, но и это неправда, и всякий знает, что выпивший человек согревается только накоротко, а надолго скорее застынет, чем непьющий. Сказать, что если выпить на похоронах, на крестинах, на свадьбах, при свиданиях, при разлуках, при покупке, продаже, то лучше обдумаешь то дело, для которого собрались,— тоже никак нельзя, потому что при всех таких случаях нужно не одуреть от вина, а с свежей головой обсудить дело. Что важней случай, то трезвей, а не пьяней надо быть. Нельзя сказать и того, чтобы вредно было бросить вино тому, кто привык к нему, потому что мы каждый день видим, как пьющие люди попадают в острог и живут там без вина и только здоровеют. Нельзя сказать и того, чтобы от вина больше веселья было. Правда, что от вина накоротко люди как будто и согреваются и развеселяются, но и то и другое ненадолго. И как согреется человек от вина и еще пуще озябнет, так и развеселится от вина человек и еще пуще сделается скучен. Только стоит зайти в трактир да посидеть, посмотреть на драку, крик, слезы, чтобы понять то, что не веселит вино человека. Нельзя сказать и того, чтобы не вредно было пьянство. Про вред его и телу и душе всякий знает. И что ж? И не вкусно вино, и не питает, и не крепит, и не греет, и не помогает в делах, и вредно телу и душе — и все-таки столько людей его пьют, и что дальше, то больше. Зачем же пьют и губят себя и других людей? «Все пьют и угощают, нельзя же и мне не пить и не угощать»,— отвечают на это многие, и, живя среди пьяных, эти люди точно воображают, что все кругом пьют и угощают. Но ведь это неправда. Если человек вор, то он будет и водиться с ворами, и будет ему казаться, что все воры. Но стоит ему бросить воровство, и станет он водиться с честными людьми и увидит, что не все воры. То же и с пьянством. Не все пьют и угощают. Если бы все пили, так уже не надолго бы оставалось и жизни людям: все бы перемерли; но до этого не допустит бог: и всегда были и теперь есть много и много миллионов людей непьющих и понимающих, что пить или не пить — дело не шуточное. Если сцепились рука с рукой люди пьющие и торгующие вином и наступают на других людей и хотят споить весь мир, то пора и людям разумным понять, что и им надо схватиться рука с рукой и бороться со злом, чтобы их и их детей не споили заблудшие люди. Пора опомниться!"</span>.to_string();
-<a href=#516 id=516 data-nosnippet>516</a>
-<a href=#517 id=517 data-nosnippet>517</a>        <span class="kw">let </span>encryption_path = data.encryption(&amp; message)<span class="question-mark">?</span>;
-<a href=#518 id=518 data-nosnippet>518</a>        <span class="kw">let </span>decryption_path = data.decryption(encryption_path)<span class="question-mark">?</span>;
-<a href=#519 id=519 data-nosnippet>519</a>
-<a href=#520 id=520 data-nosnippet>520</a>        <span class="kw">let </span><span class="kw-2">mut </span>file_in = File::open(decryption_path).unwrap();
-<a href=#521 id=521 data-nosnippet>521</a>        
-<a href=#522 id=522 data-nosnippet>522</a>        <span class="kw">let </span><span class="kw-2">mut </span>text_vec = Vec::new();
-<a href=#523 id=523 data-nosnippet>523</a>        file_in.read_to_end(&amp; <span class="kw-2">mut </span>text_vec).expect(<span class="string">"Ошибка чтения файла до конца"</span>);
-<a href=#524 id=524 data-nosnippet>524</a>
-<a href=#525 id=525 data-nosnippet>525</a>        <span class="kw">let </span>text_str = String::from_utf8(text_vec.to_vec()).unwrap();
+<a href=#511 id=511 data-nosnippet>511</a>        <span class="comment">// Добавить проверку на создание файла
+<a href=#512 id=512 data-nosnippet>512</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>file_out = File::create(<span class="kw-2">&amp;</span>path).unwrap();
+<a href=#513 id=513 data-nosnippet>513</a>        <span class="kw">let </span><span class="kw-2">mut </span>file_in = File::open(<span class="kw-2">&amp;</span>message_path).unwrap();
+<a href=#514 id=514 data-nosnippet>514</a>        
+<a href=#515 id=515 data-nosnippet>515</a>        <span class="kw">let </span><span class="kw-2">mut </span>buffer = [<span class="number">0u8</span>; <span class="number">4096</span>];
+<a href=#516 id=516 data-nosnippet>516</a>        <span class="kw">let </span><span class="kw-2">mut </span>text:U32768;
+<a href=#517 id=517 data-nosnippet>517</a>        <span class="kw">let </span><span class="kw-2">mut </span>padding:usize;
+<a href=#518 id=518 data-nosnippet>518</a>
+<a href=#519 id=519 data-nosnippet>519</a>        <span class="kw">loop </span>{
+<a href=#520 id=520 data-nosnippet>520</a>            <span class="kw">let </span>n = file_in.read(<span class="kw-2">&amp;mut </span>buffer).unwrap();
+<a href=#521 id=521 data-nosnippet>521</a>
+<a href=#522 id=522 data-nosnippet>522</a>            <span class="kw">if </span>n == <span class="number">0 </span>{<span class="kw">break</span>;}
+<a href=#523 id=523 data-nosnippet>523</a>
+<a href=#524 id=524 data-nosnippet>524</a>            text = U32768::from_be_slice(<span class="kw-2">&amp;</span>buffer);
+<a href=#525 id=525 data-nosnippet>525</a>            text = <span class="self">Self</span>::modpow(text, <span class="self">self</span>.private_key, <span class="self">self</span>.n);
 <a href=#526 id=526 data-nosnippet>526</a>
-<a href=#527 id=527 data-nosnippet>527</a>        <span class="macro">assert_eq!</span>(message, text_str);
-<a href=#528 id=528 data-nosnippet>528</a>
-<a href=#529 id=529 data-nosnippet>529</a>        <span class="prelude-val">Ok</span>(())
-<a href=#530 id=530 data-nosnippet>530</a>    }
-<a href=#531 id=531 data-nosnippet>531</a>}</code></pre></div></section></main></body></html>
+<a href=#527 id=527 data-nosnippet>527</a>            <span class="kw">let </span>text_b = text.to_be_bytes();
+<a href=#528 id=528 data-nosnippet>528</a>            padding = <span class="number">4096 </span>- (text_b[<span class="number">2</span>] <span class="kw">as </span>u16 * <span class="number">256</span>) <span class="kw">as </span>usize - text_b[<span class="number">3</span>] <span class="kw">as </span>usize;       <span class="comment">// ПРоверить переполнение
+<a href=#529 id=529 data-nosnippet>529</a>
+<a href=#530 id=530 data-nosnippet>530</a>            // Добавить проверку на записанные байты
+<a href=#531 id=531 data-nosnippet>531</a>            </span>file_out.write_all(<span class="kw-2">&amp;</span>text_b[<span class="number">4096 </span>- padding..]).unwrap(); <span class="comment">// Записать текст без дополнения
+<a href=#532 id=532 data-nosnippet>532</a>        </span>}
+<a href=#533 id=533 data-nosnippet>533</a>
+<a href=#534 id=534 data-nosnippet>534</a>        <span class="prelude-val">Ok</span>(path)
+<a href=#535 id=535 data-nosnippet>535</a>    }
+<a href=#536 id=536 data-nosnippet>536</a>
+<a href=#537 id=537 data-nosnippet>537</a>}
+<a href=#538 id=538 data-nosnippet>538</a>
+<a href=#539 id=539 data-nosnippet>539</a>
+<a href=#540 id=540 data-nosnippet>540</a><span class="doccomment">/// Модуль тестов запускать последовательно, так как пишутся результаты в один файл
+<a href=#541 id=541 data-nosnippet>541</a>/// и это может вызвать неправильные результаты и соответственно интепретацию результатов.
+<a href=#542 id=542 data-nosnippet>542</a>/// # Пример
+<a href=#543 id=543 data-nosnippet>543</a>/// ```
+<a href=#544 id=544 data-nosnippet>544</a>/// cargo test -- --test-threads=1
+<a href=#545 id=545 data-nosnippet>545</a>/// ```
+<a href=#546 id=546 data-nosnippet>546</a></span><span class="attr">#[cfg(test)]
+<a href=#547 id=547 data-nosnippet>547</a></span><span class="kw">mod </span>tests {
+<a href=#548 id=548 data-nosnippet>548</a>    <span class="comment">// Note this useful idiom: importing names from outer (for mod tests) scope.
+<a href=#549 id=549 data-nosnippet>549</a>    </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#550 id=550 data-nosnippet>550</a>
+<a href=#551 id=551 data-nosnippet>551</a>    <span class="comment">// Предрассчитанные ключи
+<a href=#552 id=552 data-nosnippet>552</a>    // let p_bytes = hex_to_bytes("E6B42BCB8FAA28DDDC0600AB7AE17DA86C8D380C2D1F8E138190D2BBA693D411");
+<a href=#553 id=553 data-nosnippet>553</a>    // let q_bytes = hex_to_bytes("A23E4E6073B17209E8F56CFBDCAE306C196CEF4DEE779F2B69D74FA51F380731");
+<a href=#554 id=554 data-nosnippet>554</a>    // let n_bytes = hex_to_bytes("923629FB3D61C431E6486B96222C55EA6B5AB23D557DC723185F6632A4A07D39CD68C637A037E74023C8897CAE1D029EE2520741449F0CD0A3B3BC725FD00E41");
+<a href=#555 id=555 data-nosnippet>555</a>    // let pb_bytes = hex_to_bytes("00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010001");
+<a href=#556 id=556 data-nosnippet>556</a>    // let pvk_bytes = hex_to_bytes("89E0FE11E8BE8B6FAB03DC410614DD2864F870611A7FB40CCA6D1C48E1AA5EAB7314437E27FC2F1A9EBBB965A36B3FB00288F3A25FB50705B9CFC1889BBF1E01");
+<a href=#557 id=557 data-nosnippet>557</a>
+<a href=#558 id=558 data-nosnippet>558</a>    // Выполнение RSA шифрования и расшифрования
+<a href=#559 id=559 data-nosnippet>559</a>    // let temp = RsaData{p, q, n, public_key, private_key};
+<a href=#560 id=560 data-nosnippet>560</a>    // let message: String = "Hello fucking WORLD LICK MY ASS".to_string();
+<a href=#561 id=561 data-nosnippet>561</a>    // temp.encryption(message.clone());
+<a href=#562 id=562 data-nosnippet>562</a>    // temp.decryption(message);
+<a href=#563 id=563 data-nosnippet>563</a>
+<a href=#564 id=564 data-nosnippet>564</a>    </span><span class="attr">#[test]
+<a href=#565 id=565 data-nosnippet>565</a>    </span><span class="kw">fn </span>test_rsa_short_message_encryption_decryption() -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
+<a href=#566 id=566 data-nosnippet>566</a>        <span class="kw">let </span>data = RsaData::rsa_512()<span class="question-mark">?</span>;
+<a href=#567 id=567 data-nosnippet>567</a>
+<a href=#568 id=568 data-nosnippet>568</a>        <span class="kw">let </span>message = <span class="string">"Hello World!!!"</span>.to_string();
+<a href=#569 id=569 data-nosnippet>569</a>
+<a href=#570 id=570 data-nosnippet>570</a>        <span class="kw">let </span>encryption_path = data.encryption(&amp; message)<span class="question-mark">?</span>;
+<a href=#571 id=571 data-nosnippet>571</a>        <span class="kw">let </span>decryption_path = data.decryption(encryption_path)<span class="question-mark">?</span>;
+<a href=#572 id=572 data-nosnippet>572</a>
+<a href=#573 id=573 data-nosnippet>573</a>        <span class="kw">let </span><span class="kw-2">mut </span>file_in = File::open(decryption_path).unwrap();
+<a href=#574 id=574 data-nosnippet>574</a>        
+<a href=#575 id=575 data-nosnippet>575</a>        <span class="kw">let </span><span class="kw-2">mut </span>text_vec = Vec::new();
+<a href=#576 id=576 data-nosnippet>576</a>        file_in.read_to_end(&amp; <span class="kw-2">mut </span>text_vec).expect(<span class="string">"Ошибка чтения файла до конца"</span>);
+<a href=#577 id=577 data-nosnippet>577</a>
+<a href=#578 id=578 data-nosnippet>578</a>        <span class="kw">let </span>text_str = String::from_utf8(text_vec.to_vec()).unwrap();
+<a href=#579 id=579 data-nosnippet>579</a>
+<a href=#580 id=580 data-nosnippet>580</a>        <span class="macro">assert_eq!</span>(message, text_str);
+<a href=#581 id=581 data-nosnippet>581</a>
+<a href=#582 id=582 data-nosnippet>582</a>        <span class="prelude-val">Ok</span>(())
+<a href=#583 id=583 data-nosnippet>583</a>    }
+<a href=#584 id=584 data-nosnippet>584</a>
+<a href=#585 id=585 data-nosnippet>585</a>        <span class="attr">#[test]
+<a href=#586 id=586 data-nosnippet>586</a>    </span><span class="kw">fn </span>test_rsa_short_message_encryption_decryption_32768() -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
+<a href=#587 id=587 data-nosnippet>587</a>        <span class="comment">//let data = RsaDataU32768::rsa_32768()?;
+<a href=#588 id=588 data-nosnippet>588</a>
+<a href=#589 id=589 data-nosnippet>589</a>        </span><span class="kw">let </span>data = RsaDataU32768{p: U16384::from_be_hex(<span class="string">"DF63C01708836BCD57017EB8428F789B5AEE4A9708799849A2362F657ED4B747D10211D6C77A77576A3F28CFA1E67153FBA14001A9925C73741A067442EE56FDB532F56060BE7F16F5FE71BB01B236826F079DD1B7C35B7D74535A7CC0341FDF6A61A7EED3D8373BE07F95AE1241F7368752585744B43DA6C979362523CC1CDBAA89FC5ABFD28289C3562BD96E85197AE715EF419DD3A726442DA062FCA75A0B9EDC60FC8BB3527CBC9A6266B5B30453C7D86B9EA7EBC4F01A5B5031A5EAB31066C5310D5473E90F516D0FFD6D414EC55018D31E2E1EA1E1CF1C6D7B995D5C63A9C3704502EC3689640D197D8CC99E73E48153A7B6C1EE6813A6B32D3945C5435D3B1395B0105817E5689B8C057521BE7E3CB44101C35B7E0A76EC346B779ACD933975D546618E3C4A40D0D33BEF128F8775AE0EDC4D31B86F3D4F3F18A5295120FE8386356D1186EE28D430364492E33C4713B960404329AE2DDA326AAAC3756A824E202488AC8163723E2E54770F08827690011B486CF688565990F33056015181F9D58C786773F8BD66865B16F3F64B4FA66CBE388A74F63132D95526C1614B4CEFC38CEE345296A4472DEAECDB05069167C31B29FFF1FE4AD02DCD586D0AF73D884073BEB6BE28668ED7D0334F5F3E047D978C51C2FB6944BEC532300BF32A0CC2CDC63A8C5BFC7402AE1DCBA8FDC9C514B3DD438CED8A7C3B882B3AC3F2A93A90B62D129E1073EA4F9A0AEBC6D3E1EC700F5DD47B82741E520DDF2ED10C5DA27E8C4C8DF07A5B47838115F431ADE42E15659CAA502920B52676ED72E4DF105B09871B924420CE969F36E13ECEF3CBA897DC618D73BD84EA514767CE838830BCB53C7AF07C6C4C379D70EFB0510A39AC966C4C62F79E9E67A88699A16DF18F29E009E7FC7860B536E4492B6C44994D2CB5F730C77C797B25A8D72B49A533139A60653441D0D13A3550503FD4C6089D4EBBB3108F9AF7CD304B8525D9E72032A1F2B61871D994BD10DBDE8A735310EAFB9E1A7F2777D7650FF0733BC9ABA3892EA6C0F2E2EF785A5F542799F306A57345F39223EA45BC0BB6D3E3FC9FFF4C0AF628BA33BC0A5FC31891FD0046E6DC8F18950C6B033A4230F51F0E262F9EBF10B73EDAAB3A8A8B61947C2686297CA072422D205A8EF59A068BB41675CFB413D635F39F347F47DDC2E2C8A8F6FC778452280E5742D88E49716DA602465D83830C51B2082A8FB5109BBBD9FF131F8127ACA4A5A83446910423670B2F0AF105013F0461BBD0A1278E5329AB6E2A5E8AC1094DD46A02EFC23411BDB9C14B1B0BA00259A0796517CE758A961375715F1B475167BF97EA8AECD4D78B93C09E39A20A9DAB54A76E8F8A8B7037897F3D0C25B91150697E0BF56ECAEFBA0B3FE8C235236E07D0BAF2311AE20A20F16159E5A07716DFAE6E94929AD1D88E18603E177498F1F3906956B57920C0AFC737AF7BF8AC9EF904EED483F3654FD77A16775AC09C0C87C39F4077D32E1C88EBF79E5AAC695D05F19A410E4CB0E356086A05DA5C47F292C3A6FA27731395CBF0DFCE3EBAA74062F7BABFE03DD1DAC2DCCFDE2E3AEA201912318F7DEC72CE2AB40F11F2210EA1CE8B885E6F3B180AAF7DE0B3C9FC67E4E8C9E54EE8EDFB655FDC7B06D83398F8E4832B46F7E50D2D7ADDFA61861A3AC1099AE19369C710E9417C0530BA69E758F7189DE1A8A50EBFB074DD601F47B54DE854DC789A1DD9D68D6A9F78D0266CB0F7049D4AD5BAEF2C4B701B5657CB72C1BB7ED71C1155A33BFB8FEFEA2861BDC689F78F4D612A8A7DF9563EB8EA9D18223FBDB0590B261E796E9B595DF6CD6C34A31FF2BF4B38AE53D8FA5C7DB57FB26CD518C97E5162F5F5093E635B9CBF27316DAD70017C51909F6EF78FF654813FC597D00082D77B2CB2F4B26BF3649B9F93357FB9BB43176D25C7A284E1CC42EAEAEAE9F153670FA4FBD729C48FEAF3001DF401521441E713CF1367D455128EE2B7E79DF9E1AEE933CAA8A39C8464FA1C95D2D15B183DF4B02B9BD2392D987D8CF7AD53A8355EEB7648D9EE60CD65FA5CF2C5ACA0F52888C85946331A6E298C4F73AC6ACD0BA0BC3F6D69983E40B6BF5D308F3591EB43D622C8280448BD03A3815C318891ABE3474F5434A1791F052C30F85408C891961DF430B53DFEFF0B25A5ED5292EA7525BF96D423FF570D8EAB6A6FF74F5DCD479759874A8CA05897CA1E16BB210B24C7C55499A9184C6F8D242B57450941283C006E68F5752F9DB4D5B9D43F13ECC90150411E42F1D955264CF1215F7D40F52C3ADD0D1EC37B62203594B6539A3606B8A35EAB2064308248337CE20B2416DF6BDFAC0AD5EA99EA6512B9A5841B53C84D92D1D2B00386E28AFDDA0975B5719C516B31D0089FEDBB564690877B03D00FEEDFC8A9F633AC0704EA8F411A3235A133815217E4B1479EF686607F57354C55215AC1AF3BB01FE976BD96CAD81A2FE00012D9545AC264D73F5F10F50FA546167BD1CE23DC5F164522BF76353E820B6F5D24F56CCB1E6FA80337D5E1346DA8280F8D8F08176CE7B8C21C15DE437EBA4572012E535148F2D156FCD70E82F3BC039E46327ADA730F299B818AC1E09D3F708759FA595D8CB23B62CD1FFD4F95A69B45F6CBE57C288706EC0E4B8730F14C67A5301937F510425F3E56919095DFC27419F101A8540ED7C8ECCADA90772026CC280D0DBC161B39B09C5EE265CD43182A6A74F360F9368D113A2145C168E7904166A8400301D224A896DFB4E9B71280A1E39B4507149810FF1AF0E22B0A9C49896E122FDF18082F8D2C4569575B20B9AC42F2D12353AFDD72587571F559237BAE003E8F8F42EC25C91427F126D7245675C3DB3573062D2FF029935EBD5B00EC4CA06B3D016B50ECA4B19E6D"</span>),
+<a href=#590 id=590 data-nosnippet>590</a>                                                q: U16384::from_be_hex(<span class="string">"F92F72CB605AF06277FE5B47579CFD6F81A14D654935E6A88879D4D2BBB434CEF48110ECCF773815A5E054F09D2B2B939811C501D2C7CA3A2BB93C84780EAC74E6ECB7FD57F6994AB21A463782C84BD145626612DF7E5319D531471A60E25E195480EC153A41BBC3CA7B534BE868590948FA8DAC8D1E46EB7424200849AAD26D2CBF7851D604742DE9CE1598560AFFACF65E20C8AF99E3C85E63C88588BFD059327383162DD93B0D1A20648E2BEAEB5446830A6C8EAA1C7C95ACA781F3A4C1EDD615A28081CE772F4F37EEF9F158FDA6152953C77F258E428CF154D7CB27F43993F295E12C6843C70F179D62DD7734509053AAA98CB67A85DC80D7932654D81612516E7F300362FB1AD193D7A8BC974E32F091FF9B7291807B5EB711BC98C8ACB477A5E151FDE620C66E6286E2283A32EB567A2CB4F0F3185D54FED79759E37FEA7C978DF22915DBF9B26BA8635923C25E06F763CFAC37B5F0E9731BF57C16B7FBF1B7F71A035BE9D13FE013300709101A8FAB39976EFB0CBD4938BBEE2EBCD86CB6EBFE5E5E9EDC600D4C69D4E7419C2C4C1557175C97FAFBC25F3FB6680DC6242E7B61F9017A06963CD26CDF293ADF469F80641CEF10AE0360E75922DD6B1CCC407BD87E02638160DDB6FFD2994E708D7B53FE1A846570F9CC9EA22E7021B88469741DBBDF8EA6EAD3FF5B16256C5175E5E712347C8A1761E301E47B984FEB53EDF23D0D6B29B84B9602FD513044E30E82279DA49B24D76A36FF410D08E0DB48300FC3A7A86931C88C2822C1C4ABA4B3C11097CF41AB04DDE6ABA34CA76F3EE0EAE11B25D3BD70AB8C2EDA8EE9359D971672B93B30772783CCEC050637CAA65B92A352FDC7A1FAB412BD9F1ECFA4C39819358826298FB619F93C8169F683CE3440287F75518D0DBA0ACCFCFF326901F9FCBCB7B4A0254AD7A015D3CE75C64A3CAC532D36A6EB3BFB676A3ED711CC6F2C3736FDED3EBA270FEF714F5CBAB9A1B6DC8C7E872FB095BB0BCB6123E0D0128C9AC5DAEAB6A96E2A2BE6E97B313E6F2D23D88B999E0FE4E1671F7109171BB73041AE15B7E61D0555BD31FB469B076FD38237406837567DBE97444A298ED714039FB44F38BF19528606C5739D0C317277DE01C841D050DDCF9075BA548FB90C703C4D9C9ED40B7D8E4B8EC7C813758DFB294BA1F374F0213E5FD26AB2242C8F03AC014F105D92FD9194C35F0042DD985C26E28F94B8FE3FF6F87570B8DA92EDDD7792BE462A9891CDAB4E3BE1C331DEEEAAF47D000829DE79F508F9CF73F7A0C53D03FB68F26B2E4EC7FCAE52F08D76346D094795743B682466719FD24852B3C6243B2479746914A5B8CABDCCEC71917112DE94A17392555B98D809E471E97F74061B9478A182455048D17599A678EF9548A2D00D2A516A1844CB5970FD8E501605B3529FD471E63D35A13C3F0FC5795DCDAD2F1EEEA78EA4E5B0ACED88CBC4AE21EC6FCE42D95B7B6E5C55F22BBAF68A226028539F94D740C4736538A930D40D9FD84197B4AB2EA93C138475CB5B1107A5DED825C2AC1698C88CD39D21866B4374D2546ED6839184A7BE1564F2A4E2C6829D321E3994466466F3EA234171FA4D5E46C7E28F3165AE741236CB8D525A4E157D613725601E358B17B952405BCDD65453819B673657847CB1A54F78C8D59E01A44625F645765EA2B83352416CA0FEAEB5CDFE1191EB17BFE2055553BB064A120BE17815A4678A28DAE55ADD2773E0C841F997A5054145646E0E3FBBBE6F000D4A101A73E9DDBC1B69A0893BEE2208303890E1787D8C07FCC1DC24CC0367C33619B7A4A4BFF62F3E64F847BEEE2264D6145CCA4B3E5A4277BE709BD48431363027121604D21EBA31545C0E63552EA9394F7087658350F9211C3F9245E80E1BC200FAEF0A665BBC4CAF0506F1893300B7BC1E8A318562D85D4284171DE95DBDE3B65496DF11A4F47946B292C8DAC0B08101CA763A0EB8A8D653883895641C70B042DD0C4030951C2E354B6821A2E36CBF7AA9334A413CE1F45970BEF0C688ABBCC640FF6C987012E83589BF0935891C3BF54BC12126C55BBAF328DB285607B22B592DAE781E967A8FC5F584B11E055057404EEED63DA3D07FFD9623F932ED3AB57F96EA8DB121D09B1B52307DC417158C592C93C9CCFED89C2DBEC9E8B4978B0EBCC5087E76F6172AB1C8EF44CAD8F49EB1596EEC4DDDD02157CB8B8590CEDC47F9D1A74746EC39F9C45A920893470CD5C7A604559FCD4DA9002B354D0E58CA26D1B064A1B788E10F8F0010043698254EF5D00B4FD1EC79F10900822B78C4347A64BD234E4A3EE407695F1A203971EDBFD0138A45E44ADBDCA8FC64A0BD6375792ECBFF7C6785D82190DABBFB29D96071CCE50C14D062C2DE6B7BF5E87ABE265A0EEF054777E9E344C7AE68F03389BA90480626B68EC01FB7644C5335426978612DB8D8232E57343C13E602BA44F24ACFD4F31486099C97157D90FFDDAFEA38CB60522B5C388F11698365DD3771A18E5A38F77F044E89D601E2C13BE4C8E32DACCD37E0E4A8AE5D3F552BB0A9BE44555F3D45A1460C0B984B42F7E03BF0C6A05AA709EBF789ADAB8112CC223295F434B03B3202871AC8B181722DBD1B0C00D184FAED2DB4C6B3F64D557D45FD210FAA8D829F81FF8A6C16437489431FA7384F221DE61BA2D0D6399AF11EE7C3E3D911FCEC80F2DB2FD53FA2C95611A10E7660CFE3FC4861CD9464D9814D63D6B2B474EEBAF95B6B84118C6D911B2295586B997EFCAE07D92EE4B18E45C942D3CDB9BEBA0FE836413559C5C22962B9AF6D96D33F08F6DB37BC2E6C5BABBD1ED9A6DE0680E6D61FA600417B8CF0463493D4127947C53676C3FA77A24962DCA2FC46A7373D2725023F0035E757332A7007ADA9"</span>),
+<a href=#591 id=591 data-nosnippet>591</a>                                                n: U32768::from_be_hex(<span class="string">"D9716D528F3ABAE766D0147185961EC287A3940A5A15B8F31366D87E07200471643E4B9413E9F30E747B332B43687A05B9EF6FB027F013BB9DBC1D68C23AD47B9B8DDD58E56A1984F6BC0508F1F3D3B860B9810E93ACDFDDE894A4755E247F3C707A34D88BEA9D76D92D71A2C784CFF52E9129D0FA91258693E439B60A23F5B19346320F5C36E55FEE447210AB0A6FEB074C08540FBE71ACFB8E3A476913D524F29B53775E219FD94157D1CED90893D552470742E2F81EF02119E37288368037ADE17A0A0BAB3F94CB44982840F95E7F87F797639E6446F917B4181592B2314C2669C7945D8AA15BC0D83358CD60251FFF54FE7C9B832D5CD7913A6CD79100D325059BFC6F4FC320DA0A9F853BFC25AEB9EC069991E2C96693D238A7B35B87BAE0F22F8FAB052306753117DAAC204A1AB5D5E5CD6E588A7C15116954929DC4D5DEEA80543EAB8E14E2F563CE407AB499ED744B761246BB59D63E590021D0B24E597606A01094AE58E4CB04599E10134AB22B9C2DA34BDE19D9CDAB60DD3DA23B7DA2EBABE3FFF5493423A00A06F720AB02338C4544D47FB3FE27062D5F0CF0A2F07C699038AE910E55A119BCBAEE08745310C81666421DE93CBEA37E243622CBEE42A0C6504FBBBB54FAA2426F0C77C644E6265FAB574E9AF755FFAA86AA439A7F5D6C6E8C0328D710806B58A8FE8CFF75A3BC999A266508C50864BBA3FC3707F2E2E75A2A1A0B71028848DB48DFFB120FB60023AAD8C372DCEF77C94A1D35466985BA8FA8E9A4B2E6705643FA4AA9025363166305B62510A6624F3542951D979A0C880831766A2B30635CF605A340B195965155006DAC15F878222BCB2A338B1C0EE2DDA0489BAEDF9A6BAF306D7C143E594461092F98277CA0A227F4738F19E58ED1C7F51C89CBBB7636DE0C7170A387F6B052A0A5A5033147C5194EB155140A72C7FC54005E83FCCAAF91CBA57FD7A1A39E3B9D2205D2F9407646BCB1979A41F3A7F90FBB4D64BD56629E0CA000B1AE6BA4629AA4AB837985B32031B08BDD9067E3BC8DAD5B647B7CB3EBDE5E26446D23FE9BDA2A504B2CDDABFBDD74D4D815530559B967FE4744551763ED5DA36E78DEDCD03082EECAC498E5FE770B58BD42BBAD74C4F05A78D61386F0C0FA48EAF6A666539926050B4B56358D0396358A386388112AF204EB6DE1F6D8E2379D5D2E4CBC471A52BEAAB96C12E7742AF2312A30865600B7364FF2590A1FD70F6A39C7BEAF7290B6403A06E4F0A378B9F469C33955DB719FD1C375E44D2DFE2593BB6F4F5DA6450FEAB805B2768551994326E181CDA8422F21A2129B3C468B5AF362259E04142DA36839D9D61011382BEE839CA858FFC003F62464576E95F1BB91D405E7990CEA70EC1A7C8858F3DF0E9A646C92A912A8CEA43B54CABF19F9CA1048F26CD5E57713E9B21E6FD7BC28E60FF2B2A4A3F1D1F348501C49165750EF33446F7DE9529AEA28DD26C84BD76FE85484D91B4A1364B92AF489207936DA73E3B67CF62596B4183388BC92DF7C5AF5EDBA0AA48557766D480C6AB8735F6CD2B1B1CB488D8446A75C975424249FC3B0201C6D89F6BB9F5EB6FC91209D2552E7BE28D3A832AC6AFC9777252ACAC1A8C42184E1B62F661CB8F2CA8A8E67DE5252BFAFD1BC306BA0EC605A82A2864567E6A29E173042CF0CCBC90A5F5BB42717579DE979844D58370BB840C03B75C6B8E5AFA4B236306F78AD5C931099309F3832BE52F34F4C77B35D1CA77F9534416D741F75BB840006AABE1769013024CB08A9BA1428A9F3BA2A06F508851D5DC553EBFE0864F2E9376034ADA9C152E20911D409D29ABAF0B77E81293B26B442EFA0BAD24092A54D458A2EBACFF696B22B83019033EA413D02CE20193D8B760468FEE342556BD97AE18C9379A3BBB5B3C4E19A80EF4E02864B65ED3843F6C2E3CC18DE0AE9C3CEEC815240128F477740A56E599ACCF8C4EB8102A15C85CA7213897779400361DA4212D6D46F078C1F4937B045C1FC040D7075CF6B5190C0293A3BB8078602FCEA507F0659AC341A2AF5EEDBBDDB3E3707B080A4D1A3A95B8D3939A3C10B87A60375D96ABAA56286BCA8DD51EEBB2BD4BABB80A4D678F56026C0E69BE78894C855535F7E3CEE4FB4C546E4B7FA9D66342E062B6F1B43356F268795EE254272C02316DCBA62F4F14D336B259E5762FA69BB6C114AEDD49E0A6B3786586591093E035B9A47EA64AD72026C78EF58400A45D0F18CA8AF99F201B8D4F8C6CFC0757B689AD4AD9FDBD63596BB493670DD25585994F782056A2AC5A5E13DDE4092114C66E507064000A9D202FA9949518D0D8E016D65B1B51D2758DADFAACF36EA7A2EDD32152501C5950642AF37042DD14C2AF25C942FE4798D8362BC0748F1812C05A839FBF2CB4F37DD9DA4854D1275128810B74721DE2874D8EFD3A84E7E47C117BA6456C1E0F050304D9B8AF17195E39639EE0D458303F2DED326ED5EC20891DBABF12195D932FBBD3A71748844E0C1B5BD52ABA51EC80E517CEE45CCD5622FB4B13CE764D2058DFD7652D75DF75719A472896B5A1B8C9229FF446468D2C505ADC20370AA3439C351ACC05FD2C5C0A22A898DBDB5BFC465AEE1EAE4E771FA857B648ADD7369DBB6375F6F4408509AC0556C4145076B9D07ECE7818191E87674B3FAA1CDEBDF07C9E7A7E1B771AA4C011B43ACB2982E5F53AE254667C79EAA8089B680D27D115308F7DD92587EA0DEF6E6A558406BBD07B45807D630702423F73EED0B05F36A6E163416A2DE4E0BFFE539DF1859926FAE967EC6705929A9DAC99EA52E4C3D357B87C452D6B7FCA03425C11ED407891F66357967DA2552B7EB8D6F809A299667BB6F8FCCABC6C42D1B3DC3D4E51FEB6E6D6CA57F18708C30EBA2657DF3BFD725EF8C802595E4A392A77BC433AA3FC16605D5B4634B311645B1A73B343ABDD8D580EC0B19EFEC14CEDB5CDF145F901D388D7714A81BA02A0FAC09D10DF6713CA2143B34CC2241B18B7A319AB80C008E3FB1D8514BCD408CD7A9AB44A717644773BCD019248B619F23103E46194DC9E815086C707C4FD829279CCA639B160EA2283427834F7502657DC24FCEF88576EE79FA9FF064CA7540B73148EA762950D1326342089976D8B68BE28ADEDE370870529A00C3A2B8FAD690ABDDD60FCD9CEDC74C2BDB6C4C06D02120543FC977FD698CA7668663607DD465491BA848CAC702168B0D7030091CE417632171C4A272C85AA9A0093324B6A0D1040597BACE1C2713596E7D2606A7D7CCAB35AE0760659166F900109884DC45EFDD2149502A32BCB73250FDD7CE8CD4706A53C6749EE1CD99AF8475B62E4398F6EED0720F856359A388A403F7D0E7C691F30B080E42217DBB24204D75D33D1AFE30F4397DB1C5CCF4D92917E31230166B2A71E08FCE74E178B8BB4C9B03054AE917EC7E6DC9AC0E2377FFB15B2D4FC126EB4611DBA7C4F4D38A4E10AFC2B1D0A0DC3350F4A7F384064677149B505051337C18CF5AE774A3D8BD0CEE09137B9C02616E316A4FCBA7B0C9EFF53326CA03CB0A54DB9D1FBBD13CD000703F0FDAA7C11DB22CF74FED49833B819ACE6513D3115BB53E89CFFE14389A76B76D84DA59D2F7A57EF1431282961A945A67FEC171E9F2955F9FF9DDFA790143B4F316F6BFED01FCE15B95B3F1373096530FC063F1B527F8B2A6AB53FF0D1E65B84AA1020D54B7169D396B6F95FF879DBD73DD3CF9A71C54A7B41C9DDC126B29077BCC3B0D8F56B62DCF7A179597A1BE449461E666A9072F2C9157BD5806F64BD89B209353DBD869089145D78858263CA5DEA30828CEDCC87A7FE552FE84EE667F34A10FCCECF56C2DFABFA565C93C7C2C9A0BBF877F640B4134C034B61DA9DB3AC359C7840C69EF8E9D19705437A65895E6C6AFE34FF1FFE69B24E831536F1A13576292E1A8E7CBEBF4CD5254204F4A4E2377EC47CF77FD6AFC05538D75C1FEE68F895CD3FD684BD1790D19C9A08D1B825A3F4AABFF711585B07019E3A05CCE280B2F8763F34AE2BD12A7E4F14D022708E0EB5B7FABBC34E3F5BFFB55B491EBA7AD631DC78F129747EF00597FCC51A7CCDCDA10794B472B6AD05EF6C6B12D146D9D3F736848403821A2269D9A6C010C6BC7E8648815CFF50E5E4E465A14CA992A5C469EB13D33DE615E5A1E42DAAB9E389E56CE2F1AA428FEBC1FDD7DF1EB6F6DE482C91838C8625FBF5BA27C535D75DA2CF2CD4420462474BC2AF8A0A20D81EB920AAC7C416CCBA5B53AAC5BCB17F73A03AE01E770A3BA7606DA2446037C125E0B3A240EDD1B21EF3DCF15FF4ACE0F7308A5A8B956C6282011ADB9FB80384CDD7FCDA6DB8EF3E4032C3E6554480CD972698D96D9AD3D430CAF7BAEDB81DB86D23D94EDBE6BD5641AC2A6FA4F3171A7BBF6ECF36A686E7D561CD52CC0B471FCB7DBFFBF778E3C456DC19750586CD4879593E2B6FB4A7B4A5660EBC8AB1EF3D09B27302160BDC256EF502B14E4AF5F36DC86E81AAA2AF3E98417F746208AD8DE6C13A61691AE480C324275C228758E5A9379F575CD08A324E9EB535BCC4A4953F358EB22B5357D9789DAC475713FB3EF4A72BADB723A6D36567742183F6E7E35CC1DDDC42F8968A6051045C36B33711911A959C323A99FE07465AABA5758EDCAB16CA1E1F47D84CEAD5E83FE1E22EB8198FCC25F8E601ECD778399096E209F96DEB55189C6BB7A8B069FAECE68AF85D3E473351857AC56AE3D07D6E91038D64374ABF3F13A2A2030C989A546CA89C331F98656D7E5743BDD895332D8D42EEF575092C2A5DF614C814B4B6AFD3EBE16BDDA63C2E83A20BFE2A3FEBE3A24CD0A0955C5B79F74326C423D041DEE5EFC636804EA080BC465D957A138D9484172CC06780FA3A5AA349EE0F8DDCDE1B2226F2654876D0CCEAC5F0C9A1B6A89284B649C18F02F04860070300A77C30DE9423CB842F354FF562BACED53CE50317BD4EC8FCDE35C84DE19AA7D2B93E29D0EC77AB7721558AC13D7B640B21AB584FDBE79A69A227935B9B7639CEEC22E3B2AC5B77D3A24404683E9DE1B1FACFC8A70A08FF1153419077E9961672C9C20A43DDDC17AFD72A420AB36776055402898A19C22722B881377F4FA9DF1ABE1E1749BEDF04C00C2F578EEE96A7A4D2CF208CB26CF326B4AD764E530160EA9C1D6CFCA57B4422234F393A80AC2E61FF6F52AD507E8EC8BFC0DDA5184E5E2FFB259DB811AF68B3A15A9CF44D8B045FF37C634EF32DE0BD8978E8B6F672BA318F523BB04205762941642DA9A77C152566340431B2720CEC6B716D452B9A5E010177BB159D5A42FD622CD19042C6DBE4BD22FCB414747F132B65EF92EF7ECE39C670AEA2F8B5B49DA2BA8D71843E6288483C2D9AD92CB7CF318A7B24AF532F750A3428E57C6C791FD89552A78330726F62C31147918B0A4A714D8CCA3C9AAA6E70B65BA80EC843B44B02B64722DBADD169E5374578A8F28A923D7B6133E33B095B40A4A2A7BA26BE2DAA29D547318993F6B78B3C7A755316B2245FC1E65CA3EB284D2972D856111F83474EA8E4CE183F5178A4014C0297BD572674E6DD8EBC84017C2FC7A1928D2D5602348A8E25A245CD0538C734098995BF0460B4846E87CCC7E792C8DE4E9AE172912C8ACE75DF07A715AF79A9E743AC64E9A6CBA7B77CB3206606D461464B8F16DAA9433A66608CCB024E46CFCAEBF37C1F7CC74F197950040D12B8715046DE8A9D92E71E028CDB693EED01A5AB4BACB881223657B034318831B0337D3FBE561DCE1FC315D042504E6D08F33047916CDCD4291C64C3EF5"</span>),
+<a href=#592 id=592 data-nosnippet>592</a>                                                public_key: U32768::from_be_hex(<span class="string">"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010001"</span>),
+<a href=#593 id=593 data-nosnippet>593</a>                                                private_key: U32768::from_be_hex(<span class="string">"4EB174251ADCE0637A9BF7AA15F47C715E715ED45841E04B684C22318A1696450B485845E0E71C25B1161D309D16A4828A06135FA734858FB2C82FC487F68E8BA5823407460F9DE8B6FAD8BFA200E230AA20B88A33FBAE913AE90093D15C5807E194F8A71E0BECACE47043DDEB632F77C64096E7A0A702F3AF763B449C6AE3323EE07AA18078058F3045E91A0B2C9DD06B35A315F914AD43334F07DC6C34D740A5E47CD2886896D72384CAD3974C39644C80942A2AC62D3C2E5E96280F0FDA5B4C3C7BD442E0D903DA849AA486CF38D9E2B5423EB546094180C896A6C80E6134F3F9F856C37BB665E466DA3E5B255E8A33F7E899E4161746B06548C5B7462D0C3D2BC886152AC2AD92FBA13BB0B7D25367C9F9A17E609B0EDA948C18751ABD066EFE7724017ABC704BDD568AB71C80752635A11335CA29643AA3B0810106C403BAC7176665BFE48DBE8D9C6F3A7AADFDBF28055F57C1ED6FD7CF7C9A45A2A7C51F2F4DBA8405AB0B54D1FC630A873AD41FA314C497828F80BF88656B8AE6115E825B81FB156ABEB49D7FFF1D61E3F218B19542409766684915C3BDC291D1B70CE107C594824EFB043B0D30A952E56E7DDACA09FFC1465058E6B8FFA65928967343692D9257E26348AABA821A94E1E83F03145FF2E3A99733122C3778D97FA933B2C076CB933459856BDD6DFC0A3D057E366EE984957B2BB97EC548DF77BB819708DA016C6A2C3ED3C95CD53137308846C314D4FC138A9B41689FE9B4197474A164F316CF830BFBA51B2CB0ABAD5B73CAF9AEB49D65A5C3C840CEF767890F3A447165F39D33796D76EFEE25E88BA5C775FD73074042056EF00C9A3D93A7D5400E2A3B60F3605CA6AB251557BF71414E546D34154120F7EE92EBD19E9DE3242737F2123BEDA7D18A350745031A5D5A78AF56377B1C8C332682FF44C01A26969AF9C3C64286194880EC37828B03B2B5D48C8F5D0D98F98724A073C0568DC72066835736FD2570021342501B81593DAC7253DB91ED4E1A355A351CB7BC59FC61AE5CA3345601192D12144D749610D8CB2E0239957B41A0350C1608C8B8C35024461B65AC441572BA261658AE8AE689330840A4D1D30C2D62555560CD0CFF88C9BC75D23EE5C98AB489A98DA04787BDEF5690626F5A3D0B01ED7566F06E34F885561F0DC547AB1EE5B3CE18585CE3A50B07927F7D19EE89A2448AB8CC5A1315C1AD2109E9C1D442320C1FE6CF3E90C35E3ACD6A72A2404E0B073778E3460B83579912E5AA4C5E3CC2E04162DB1AEB783CD538525260CC19D666D5EE89E5C6DDFF1F8464BC7B57578C83198AAE4FA4202EEC422AE70306E2756EF4F0D73DBD5D9CD8971D0CF818A6BF48476761150E830BA4FD1C9DF28FF010AA01F3EBCC7585D65D1DD70544D711ECA71729DAAE4A9252048EC1DD8D939C02C2E2C98D24805E34D4B4BADE46CEEF72A24B0BD18F9A4E1A236DB303D87B22C177C481929F8FFA5A14AC777E1ED2E1F2F98EC249D4547BBED13C6C01111D775402E28B8C840117524594BCE149B89B8D7533B933C3DD571EF15C2CFBB6EB963E5F8E0CCF7FC9AA22859C843017F152FE0E2F5DBE75E0DA1E307DCA0BE73AEB053B33CD69AD3365068632F714DE16907286BBB2655345EC793212494F581EBB809066713CAC6755F0EC0D56CB0A82B058D80B3EF38B41527B4D14FFFB579A8361646F5AA2AA3F1F0F50FFC3D744B432F25ABC86974A3775393814012643C056536E59581D016A645850426578A221C78D401FAA64680C6AB83235B579BC5135808B11684B767241AAF8A6C511FC41243A2C577135B3C42085A2806BAB180EF063822E7C1564DC20493C6A4E2830CCE7F37D7C61FBABC37F88034E268B31AF6035D1ACAA5A2DC269EC89472CDEEA4FD27654E162BFA1ADB1101F757BC002262B5F2CABBC145028BF1F2CC7E92B6C006969F2CD93C99EC5C028019408BC0B970702AADF68A2DC5B35B7D5E8E372FFD29D99080DAD326D67100E4EE40BFB6925D9C9371DB1CDB9DB7F008A096ECAC613129345751DBB4A820558B28DD3909EDA0FCC26F4D5C3486089D905793425B072DCE36B933ABBF04918ABD3654B79C0FE0FA9E6E0B6C98FAA65E5E75221267023F125D0015CA4C0C169ABF366D79F887013A7C42D046AE74AE582EA8768EDCA0A5C12101F7C170DC1F18A22B209ADE0B06973A52D050C446E0473CD8790BFDA58FD89E0A1BCCF0FBEBCB02D8D0A335217DBBCA1742A17604C20777369911E0C5AC7F340B64772A3991D70BF3812BF68E022581F521771AF109AECB770373C4DCABB0252BB22DC1D21789D60F4F4DDA35FD86E797C91F5B458B6E162FE9113505AC2A7DF7FCD6238D32A5A0293143FDE2D6B1FBEB5EE44BF53CB9C4B69492AD6C14DDF326E3F701BE87A3A21D07119CB9A9CB12FE709D3D1BFE9985E138DA8D1436CAB218D83CDB26B18724912B27D889F98F68F69482716C17537B7AE41D7FA4E7352C5D6C166F3447F449E2ABCC125B824EBFCEEE1A2DB00BBDEC5C80A16D2B9D38D06A19A8745F7D773FA3BB77E14299BD4B88CF55202C86BFF4B7A80A5E464D3D44ECB5735B3F179F04384ECEC1735FF1EC5CF1EF977EF1BABEE447CA1A877F89AE8FF0B0F28CF704AEB968BD3BFD3619A1A9C91AA3EFE4B75DBD8E481E2290A220F498CE2FF174AB59D08117BEE763C091C4AC68D8AEB681D0E0BB2CB2FD7FD97557BBB689EDC1407D8697693845ADC22EF34DF5F06AF45066F55BD9A401109450D4E4FCF9965E6CD04F14A7E68EB91C9855FC5C5BF472582E9416A7ED1409A2E4EE495B27D2EDCE885B6DC2B7204C02572F20B5C0060DD8CDE5CB36BD15F17A5B6F9EB0AE167EFFB7B0E615F1D04EE496AA4954867E9E37298F3E3CBD9BCC97A71E46BE0021E23C6AE41F43336C0DD1F2BB61151A66FCDE68581807674FD06F7920BE87CD6F0F24BA8DCFE48DF62619DDB8931150ECB99B120FE88136CB2F95DBCCFC0D1F5B96DCFE4449462CD2081C4F01C8ADA13FD1E982C5E51770B2CB9D4BAEB09D35B8932C6D88518D0BF05BB6C9B174EADCFA17087C2634E0B04E2DD1E51A3B5D8B0B2B8EB09FB00B7355FF8F0ED4337AD36729E1F9A3ED6B338FFFDC2F093D6C886D3676E2E26D3DB5E48C6AA7C0A6B05E8C90554F92CF6DF6B5826E4DE155EDE5E0F26C0EAD42CB22830F4DD2CFBEF224939867F82090E3CCB98806DE76CDE0F48D5C62A56D8B05972070776727F81FCE6DD6E4067EC0A26A731430AA39EEC98D5B13F756A0A5767FF6A3C4DBBD09B0D6862D1B0DCF009F02C67D52744019164CEB60DB436B52F979A491332F6018B47068C7A4BABA8A8D131A033B70FE96669183E6BC080531CE32186173AA19A5D00AC6BF786934B25792C7EE1DF211C77AA71BD77665AEB9F3B9CE2C3A506B7731F706DED141C3DEAFDB92FB1A6AAC610C148E8693A5878056CF8D6771E38ACF4669B17CECA779A43218355F18CEFC472E6BB81FAC23308F1CA8D30D1BBEE85050DCC87C1DD26192D13055A49E9D2A5808A5532A2D3B1267EEC7C29E7D27AF763C593FD9052654B9460D852027F135987532D68DCA9EB90622AF696C69E22C3FDFECEEEEE8719424CC00077D1B9ABCD2FE484343EEBE38FC0A218AD2C3708B1D810054675A1FAB79472451074B1E7159DBE9AABE33BA130781ECECCC4368BEE50EEE8C6917561F82912D91C766F9149C2DB0528767C5E7736EF927515A6593D42689469DBA6D6456FB7556B5337B8EACE36143F626C8A73B74E4EEA87D245727E6154C758671A854C17A56232C5599607C1C8E4B23F71F363CEF77257FC788D809328AFE0956C83DC0C9B0A0B6D504DD8695906B4D9398FAB12C221D7842E60756B0F140B05F4F2E5FD2B484C54BF221979DAE2DAE9FEB55C20564C06CF7739600E2FD58CA0A7606DFEAD49FE32B3D4527F035FDA13E8A76547C402912A0E4BCF6E63A9FFC7B95345588B4EEB52EEDE0993A2A9B863AB07C63EF49689BAAB8FF450DA8FD0D85638E78C32E07B760D5B4B462645B2886B13B1A41E953107FBE82461060EB89E5492F13399685BF2436709386B6F474F06F36234E5E771C3A843D13EF4165FC3C74537E5C9890103C7D02201ABAB76A07ADFAB97D71ECC6B058C8B212C0D3E256D99F9CE6F148CBD3BAD0300901F794CFF9C7CDE78C5059458ED94572891815BF4F0152BDC0486D94271A1BFC7157E663DA4CAAAF3E9F8EFD28E01ED6E50C5B42614C907E1D34C39B5AF2A76BA48432B457FB941B7A7D35E9AF84B322FCE205ACA554A20FEAE516DAAEDEAB2EAA5A1548806783B21CB89129CE91D57FDD0BAD5C3341740B46B706FD6BA6926202BFF33E175D765C4A0BFC742D37C161105F15987A601AE755CD8C5D592C3BB8D185F8357E5D02BA716C2BA6BBD3EBB610D72FD758DB54A6D7F827A1B75101F81C9463E388F974C35BE513DCC7227DA5A10058F8F94F10D906E543C64730A1D4DF64DC4717515AFFC1257B3144DF2B45CE1911B94E0A8D75E1334753595CDDEC34F92CBE1F93CE437A77DD4B52D0F76528E19EA41068601D0768E030D2CE12FFF9DDC03C4B877AE09B4EA75EE09CEC5363947DBEF4A65EC349445007F38643BB4A9D07CBA9866C85D194FE45090B05C7A60B11A9DCB3C7F55D43642A3CB1E6FCABAD9432462726161EC781010E68C37B86B613D7643ECDE9DABDD3161F8ED830FFA90D174D68074D077CB77DC0B0C09EC5F68C74936CAA7C3A4875B2525888BDF0E152FB656AE6A78A5C16AC816AE5F9A32CBF8F2A4DAC4AB3DD78C225D90C6428BCBB46165F0CAC56AF24FA847C664D791CA501D870F924445C0E76D0A41DE4C3368496D544A36C1BDD45B84B03CF97B156A95A666F4DF39A859D552219BDEF9DE5751DEE67BB90E287B54D0025D9583E138051F1AF70CC4981A0F9557B1D9E5AF664B26DC8893A2C614D00D6642E72B4794B6B0C2C1F49109A2A80808B1D8EA4EBBE452922730878FB9AE77881840E00BB827DB8C581361B5FBA4A7F79188A284E6341201FF4112F8D0E1365512AC1896C27C836C1E63E2D790F1C24BE298CC0B0511A3877BB9B8F123A813F0C46EE6BFF122826CA5134AC00A64DA17095FC25BC70E318EBD54E854A875C92753BFC74369CCFA1E036664E6323C58E6A9895687FE47F5E67E6475612FC0E60C6E6DAA42A838BAD6E834B489BD69ECC946C10AA2A72CE9D215C1C64A3482C293ADEF76BB5BDAA02ADFFCE0EE036A26061AE1D65AC6A36B3B4ECE81AF9EE01C9571C6EB3ACDF211E263B33113ECADD21ACD55C85CB67B4601C7FE7700D3A55EE0FDF34778B2061752887D051A2636C73F1D2981B809C1544B90ED51B3A148EBD7197863029AD23043C1BAC205356ECF5ED8D3401FC3C5D3C2704559C783724958CCF00B21BCD1C893E1557168DB5E2BABA337529C171543515B203E71CF9AFF970D5477A3C5571CE71E4FA0D03418949829C1BF00A1EC4577E3C1EB99D5CFF5F93C315CFCDCE3122A050AF6F90F5BF5529DA240749859A2528A50257A94973B1351612B8EB66168DC54B8944B8857A49551A1326D29EB9FE60E2BF32435EEB6D04C05FEEB9B58B70E146AB531302D3DE0EA32DC79B60F98A25D87096E1519E73489BD42D4AA4EFDF5A18A96BC980C444D6CFA48194B5771EA403D83D2F6513AF6F2919AF5D753E903CC46A1FA2BA309240463B32ADF775DE1EABFF7E7958F01D574FFB5C1087C20F56176B147E47C4CA0B763B5B1888AE25D97A33FEB3FB40139BD5CA40EF750FD41"</span>)
+<a href=#594 id=594 data-nosnippet>594</a>                                            };
+<a href=#595 id=595 data-nosnippet>595</a>
+<a href=#596 id=596 data-nosnippet>596</a>        <span class="kw">let </span>message = <span class="string">"Hello World!!!"</span>.to_string();
+<a href=#597 id=597 data-nosnippet>597</a>
+<a href=#598 id=598 data-nosnippet>598</a>        <span class="kw">let </span>encryption_path = data.encryption(&amp; message)<span class="question-mark">?</span>;
+<a href=#599 id=599 data-nosnippet>599</a>        <span class="kw">let </span>decryption_path = data.decryption(encryption_path)<span class="question-mark">?</span>;
+<a href=#600 id=600 data-nosnippet>600</a>
+<a href=#601 id=601 data-nosnippet>601</a>        <span class="kw">let </span><span class="kw-2">mut </span>file_in = File::open(decryption_path).unwrap();
+<a href=#602 id=602 data-nosnippet>602</a>        
+<a href=#603 id=603 data-nosnippet>603</a>        <span class="kw">let </span><span class="kw-2">mut </span>text_vec = Vec::new();
+<a href=#604 id=604 data-nosnippet>604</a>        file_in.read_to_end(&amp; <span class="kw-2">mut </span>text_vec).expect(<span class="string">"Ошибка чтения файла до конца"</span>);
+<a href=#605 id=605 data-nosnippet>605</a>
+<a href=#606 id=606 data-nosnippet>606</a>        <span class="kw">let </span>text_str = String::from_utf8(text_vec.to_vec()).unwrap();
+<a href=#607 id=607 data-nosnippet>607</a>
+<a href=#608 id=608 data-nosnippet>608</a>        <span class="macro">assert_eq!</span>(message, text_str);
+<a href=#609 id=609 data-nosnippet>609</a>
+<a href=#610 id=610 data-nosnippet>610</a>        <span class="prelude-val">Ok</span>(())
+<a href=#611 id=611 data-nosnippet>611</a>    }
+<a href=#612 id=612 data-nosnippet>612</a>
+<a href=#613 id=613 data-nosnippet>613</a>
+<a href=#614 id=614 data-nosnippet>614</a>    <span class="attr">#[test]
+<a href=#615 id=615 data-nosnippet>615</a>    </span><span class="kw">fn </span>test_rsa_long_message_encryption_decryption() -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
+<a href=#616 id=616 data-nosnippet>616</a>        <span class="kw">let </span>data = RsaData::rsa_512()<span class="question-mark">?</span>;
+<a href=#617 id=617 data-nosnippet>617</a>
+<a href=#618 id=618 data-nosnippet>618</a>        <span class="kw">let </span>message = <span class="string">"Вино губит телесное здоровье людей, губит умственные способности, губит благосостояние семей и, что всего ужаснее, губит душу людей и их потомство, и, несмотря на это, с каждым годом все больше и больше распространяется употребление спиртных напитков и происходящее от него пьянство. Заразная болезнь захватывает все больше и больше людей: пьют уже женщины, девушки, дети. И взрослые не только не мешают этому отравлению, но, сами пьяные, поощряют их. И богатым, и бедным представляется, что веселым нельзя иначе быть, как пьяным или полупьяным, представляется, что при всяком важном случае жизни: похоронах, свадьбе, крестинах, разлуке, свидании — самое лучшее средство показать свое горе или радость состоит в том, чтобы одурманиться и, лишившись человеческого образа, уподобиться животному. И что удивительнее всего, это то, что люди гибнут от пьянства и губят других, сами не зная, зачем они это делают. В самом деле, если каждый спросит себя, для чего люди пьют, он никак не найдет никакого ответа. Сказать, что вино вкусно, нельзя, потому что каждый знает, что вино и пиво, если они не подслащены, кажутся неприятными для тех, кто их пьет в первый раз. К вину приучаются, как к другому яду, табаку, понемногу, и нравится вино только после того, как человек привыкнет к тому опьянению, которое оно производит. Сказать, что вино полезно для здоровья, тоже никак нельзя теперь, когда многие доктора, занимаясь этим делом, признали, что ни водка, ни вино, ни пиво не могут быть здоровы, потому что питательности в них нет, а есть только яд, который вреден. Сказать, что вино прибавляет силы, тоже , нельзя, потому что не раз и не два, а сотни раз было замечено, что артель пьющая в столько же людей, как и артель непьющая, сработает много меньше. И на сотнях и тысячах людей можно заметить, что люди, пьющие одну воду, сильнее и здоровее тех, которые пьют вино. Говорят тоже, что вино греет, но и это неправда, и всякий знает, что выпивший человек согревается только накоротко, а надолго скорее застынет, чем непьющий. Сказать, что если выпить на похоронах, на крестинах, на свадьбах, при свиданиях, при разлуках, при покупке, продаже, то лучше обдумаешь то дело, для которого собрались,— тоже никак нельзя, потому что при всех таких случаях нужно не одуреть от вина, а с свежей головой обсудить дело. Что важней случай, то трезвей, а не пьяней надо быть. Нельзя сказать и того, чтобы вредно было бросить вино тому, кто привык к нему, потому что мы каждый день видим, как пьющие люди попадают в острог и живут там без вина и только здоровеют. Нельзя сказать и того, чтобы от вина больше веселья было. Правда, что от вина накоротко люди как будто и согреваются и развеселяются, но и то и другое ненадолго. И как согреется человек от вина и еще пуще озябнет, так и развеселится от вина человек и еще пуще сделается скучен. Только стоит зайти в трактир да посидеть, посмотреть на драку, крик, слезы, чтобы понять то, что не веселит вино человека. Нельзя сказать и того, чтобы не вредно было пьянство. Про вред его и телу и душе всякий знает. И что ж? И не вкусно вино, и не питает, и не крепит, и не греет, и не помогает в делах, и вредно телу и душе — и все-таки столько людей его пьют, и что дальше, то больше. Зачем же пьют и губят себя и других людей? «Все пьют и угощают, нельзя же и мне не пить и не угощать»,— отвечают на это многие, и, живя среди пьяных, эти люди точно воображают, что все кругом пьют и угощают. Но ведь это неправда. Если человек вор, то он будет и водиться с ворами, и будет ему казаться, что все воры. Но стоит ему бросить воровство, и станет он водиться с честными людьми и увидит, что не все воры. То же и с пьянством. Не все пьют и угощают. Если бы все пили, так уже не надолго бы оставалось и жизни людям: все бы перемерли; но до этого не допустит бог: и всегда были и теперь есть много и много миллионов людей непьющих и понимающих, что пить или не пить — дело не шуточное. Если сцепились рука с рукой люди пьющие и торгующие вином и наступают на других людей и хотят споить весь мир, то пора и людям разумным понять, что и им надо схватиться рука с рукой и бороться со злом, чтобы их и их детей не споили заблудшие люди. Пора опомниться!"</span>.to_string();
+<a href=#619 id=619 data-nosnippet>619</a>
+<a href=#620 id=620 data-nosnippet>620</a>        <span class="kw">let </span>encryption_path = data.encryption(&amp; message)<span class="question-mark">?</span>;
+<a href=#621 id=621 data-nosnippet>621</a>        <span class="kw">let </span>decryption_path = data.decryption(encryption_path)<span class="question-mark">?</span>;
+<a href=#622 id=622 data-nosnippet>622</a>
+<a href=#623 id=623 data-nosnippet>623</a>        <span class="kw">let </span><span class="kw-2">mut </span>file_in = File::open(decryption_path).unwrap();
+<a href=#624 id=624 data-nosnippet>624</a>        
+<a href=#625 id=625 data-nosnippet>625</a>        <span class="kw">let </span><span class="kw-2">mut </span>text_vec = Vec::new();
+<a href=#626 id=626 data-nosnippet>626</a>        file_in.read_to_end(&amp; <span class="kw-2">mut </span>text_vec).expect(<span class="string">"Ошибка чтения файла до конца"</span>);
+<a href=#627 id=627 data-nosnippet>627</a>
+<a href=#628 id=628 data-nosnippet>628</a>        <span class="kw">let </span>text_str = String::from_utf8(text_vec.to_vec()).unwrap();
+<a href=#629 id=629 data-nosnippet>629</a>
+<a href=#630 id=630 data-nosnippet>630</a>        <span class="macro">assert_eq!</span>(message, text_str);
+<a href=#631 id=631 data-nosnippet>631</a>
+<a href=#632 id=632 data-nosnippet>632</a>        <span class="prelude-val">Ok</span>(())
+<a href=#633 id=633 data-nosnippet>633</a>    }
+<a href=#634 id=634 data-nosnippet>634</a>}</code></pre></div></section></main></body></html>

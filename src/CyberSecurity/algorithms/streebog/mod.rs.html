@@ -134,7 +134,7 @@
 <a href=#134 id=134 data-nosnippet>134</a>        t512[<span class="number">1</span>] = <span class="number">2u8</span>;
 <a href=#135 id=135 data-nosnippet>135</a>        
 <a href=#136 id=136 data-nosnippet>136</a>        <span class="comment">// Шаг 2.2: получение подвектора длины 512
-<a href=#137 id=137 data-nosnippet>137</a>        </span>m.copy_from_slice(<span class="kw-2">&amp;</span>message[count512<span class="kw-2">*</span><span class="number">64</span>..count512 + <span class="number">64</span>]);
+<a href=#137 id=137 data-nosnippet>137</a>        </span>m.copy_from_slice(<span class="kw-2">&amp;</span>message[count512<span class="kw-2">*</span><span class="number">64</span>..(count512<span class="kw-2">*</span><span class="number">64 </span>+ <span class="number">64</span>)]);
 <a href=#138 id=138 data-nosnippet>138</a>        
 <a href=#139 id=139 data-nosnippet>139</a>        h = gn(<span class="kw-2">&amp;</span>h, <span class="kw-2">&amp;</span>m, <span class="kw-2">&amp;</span>n);                          <span class="comment">// Шаг 2.3: h := gn(h, m);
 <a href=#140 id=140 data-nosnippet>140</a>        </span>n = sum_mod2_wo(<span class="kw-2">&amp;</span>n, <span class="kw-2">&amp;</span>t512);      <span class="comment">// Шаг 2.4: N := Vec512(lnt512(N) sum_mod2 512);

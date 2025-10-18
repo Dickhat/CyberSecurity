@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Message"],"fn":["auth_credential","check_exist_user","gui_start","reg_credential"],"struct":["Credentials"]};
