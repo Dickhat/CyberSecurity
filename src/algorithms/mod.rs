@@ -1,9 +1,9 @@
 use rand::Rng;
 
+pub mod block_cipher_modes;
+pub mod kuznechik;
 pub mod rsa;
 pub mod streebog;
-pub mod kuznechik;
-pub mod block_cipher_modes;
 
 /// Печатает символы из байтовой строки с конца. Используется функция для
 /// провеки значений при отладке и тестах.
@@ -41,29 +41,25 @@ pub fn to_hex(data: &[u8]) -> String {
 }
 
 /// Суммирование в кольце Z_2^N
-pub fn sum_mod2_wo<const N: usize>(left: &[u8; N], right: &[u8; N]) -> [u8; N]
-{
+pub fn sum_mod2_wo<const N: usize>(left: &[u8; N], right: &[u8; N]) -> [u8; N] {
     let mut carry: u16 = 0;
     let mut out: [u8; N] = [0; N];
 
-    for idx in 0..N
-    {
+    for idx in 0..N {
         let res: u16 = (left[idx] as u16) + (right[idx] as u16) + carry;
-        out[idx] = res as u8;       // Обрезает старшие биты
-        carry = res >> 8;           // Оставляет старшие биты (бит переноса)
+        out[idx] = res as u8; // Обрезает старшие биты
+        carry = res >> 8; // Оставляет старшие биты (бит переноса)
     }
 
     out
 }
 
 /// Суммирование по модулю 2
-pub fn sum_mod2<const N: usize>(str1: &[u8; N], str2: &[u8; N]) -> [u8; N]
-{
+pub fn sum_mod2<const N: usize>(str1: &[u8; N], str2: &[u8; N]) -> [u8; N] {
     let mut res: [u8; N] = [0; N];
 
     // Суммирование по модулю 2
-    for index in 0..N
-    {
+    for index in 0..N {
         res[index] = str1[index] ^ str2[index];
     }
 
@@ -71,18 +67,15 @@ pub fn sum_mod2<const N: usize>(str1: &[u8; N], str2: &[u8; N]) -> [u8; N]
 }
 
 /// Суммирование по модулю 2 срезов
-pub fn sum_mod2_slice(str1: &[u8], str2: &[u8]) -> Result<Vec<u8>, String>
-{
+pub fn sum_mod2_slice(str1: &[u8], str2: &[u8]) -> Result<Vec<u8>, String> {
     let mut res = vec![];
 
-    if str1.len() != str2.len()
-    {
+    if str1.len() != str2.len() {
         return Err("Str1 and str2 length not equal".to_string());
     }
 
     // Суммирование по модулю 2
-    for index in 0..str1.len()
-    {
+    for index in 0..str1.len() {
         res.push(str1[index] ^ str2[index]);
     }
 

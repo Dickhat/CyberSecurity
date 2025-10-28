@@ -9,3 +9,4 @@ crypto-primes = {version = "0.6.2", features = ["default-rng", "multicore"]}
 rand = "0.8.0"
 iced = {version = "0.13.1", features = ["debug", "image"]}
 postgres = "0.19.12"
+hex = "0.4"
