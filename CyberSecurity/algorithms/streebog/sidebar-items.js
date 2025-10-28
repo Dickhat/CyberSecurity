@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["gn","lps","mul_matrice","power_to_u64","streebog"],"mod":["consts"]};
+window.SIDEBAR_ITEMS = {"fn":["gn","lps","mul_matrice","power_to_u64","streebog","streebog_string"],"mod":["consts"]};

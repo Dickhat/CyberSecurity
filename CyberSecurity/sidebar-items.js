@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["main"],"mod":["algorithms","gui"]};
+window.SIDEBAR_ITEMS = {"enum":["Message"],"fn":["main"],"mod":["algorithms","gui"],"struct":["App"]};
