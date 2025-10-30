@@ -1,5 +1,8 @@
-use iced::{widget::{button, column, row, scrollable, text, text_input, text_editor, container}, Length::{self, Fill}, Task};
+use iced::{Length, Task, clipboard, widget::{button, center, column, row, text, text_editor, tooltip}};
+use rfd;
 use crate::algorithms::streebog::streebog_string;
+
+use std::fs;
 
 pub struct Cryptography {
     login: String,
@@ -16,7 +19,12 @@ pub enum Message {
     StreebogInput(text_editor::Action),
     StreebogCompute,
     Kuznechick,
+    CopyClipboard(String),
+    PickFile,
+    FileOpened(String)
 }
+
+const CUSTOM_FONT: iced::Font = iced::Font::with_name("fontello");
 
 impl Cryptography {
     pub fn new(login: String) -> Self
@@ -34,7 +42,6 @@ impl Cryptography {
     {
         match message {
             Message::Select => {
-
             },
             Message::RSA => {
 
@@ -49,14 +56,32 @@ impl Cryptography {
             Message::StreebogCompute =>{
                 let text = self.input_text.text();
                 
-                match streebog_string(text, 256) 
+                if !text.is_empty() && text != "\n"
                 {
-                    Ok(res) => self.output_text = text_editor::Content::with_text(&res),
-                    Err(err_message) => self.output_text = text_editor::Content::with_text(&err_message),
+                    match streebog_string(text, 256) 
+                    {
+                        Ok(res) => self.output_text = text_editor::Content::with_text(&res),
+                        Err(err_message) => self.output_text = text_editor::Content::with_text(&err_message),
+                    }
                 }
             }
             Message::Kuznechick => {
 
+            },
+            Message::CopyClipboard(content) =>{
+                return clipboard::write(content).map(|_: ()| Message::Streebog);
+            },
+            Message::PickFile => {
+                return Task::perform(pick_file(), |content| {
+                    match content {
+                        Ok(text) => Message::FileOpened(text),
+                        Err(_) => Message::Select
+                    }
+                });
+            },
+            Message::FileOpened(text) =>
+            {
+                self.input_text = text_editor::Content::with_text(&text);
             }
         }
 
@@ -72,30 +97,86 @@ impl Cryptography {
         {
             Message::Select => {
                 column = column.push(row![
+                        text("").width(Length::Fill),
                         iced::widget::button(" RSA (Асимметричное шифрование)").on_press(Message::RSA),
                         iced::widget::button(" Streebog (Хэширование)").on_press(Message::Streebog),
-                        iced::widget::button(" Kuznehcik (Блочное шифрование)").on_press(Message::Kuznechick)
+                        iced::widget::button(" Kuznehcik (Блочное шифрование)").on_press(Message::Kuznechick),
+                        text("").width(Length::Fill),
                     ].spacing(10));
 
                 column.spacing(5).into()
             },
             Message::Streebog => {
-                column = column.push(row![
-                            text_editor( &self.input_text)
-                                .on_action(Message::StreebogInput)
-                                .placeholder("Исходный текст, который необходимо захэшировать")
-                                .wrapping(text::Wrapping::WordOrGlyph)
-                                .height(500)
-                                .padding(10),
-                            button("Хэшировать").on_press(Message::StreebogCompute),
-                            text_editor( &self.output_text)
-                                .placeholder("Результат хэширования")
+                column = column.push(text("Хэширование алгоритмом Стрибог (ГОСТ Р 34.11-2018)")
+                            .size(24).width(Length::Fill).align_x(iced::alignment::Horizontal::Center));
+                column = column.push(
+                    row![
+                            column![      
+                                row![
+                                    tooltip(
+                                        button(text('\u{E806}')
+                                            .font(CUSTOM_FONT))
+                                            .on_press(Message::PickFile),
+                                        text("Выбор файла для хэширования"),
+                                        tooltip::Position::FollowCursor
+                                    ),
+                                    tooltip(
+                                        button(text('\u{E800}')
+                                            .font(CUSTOM_FONT))
+                                            .on_press(Message::CopyClipboard(self.input_text.text())),
+                                        text(" Скопировать текст"),
+                                        tooltip::Position::FollowCursor
+                                    )
+                                ],           
+                                text("Исходный текст"),
+                                text_editor(&self.input_text)
+                                    .on_action(Message::StreebogInput)
+                                    .placeholder("Исходный текст, который необходимо захэшировать")
+                                    .wrapping(text::Wrapping::WordOrGlyph)
+                                    .height(1000)
+                                    .padding(10)
+                            ],
+                            center(column![
+                                button("Хэшировать")
+                                    .on_press(Message::StreebogCompute)
+                                    .padding(30)
+                            ]),
+                            column![
+                                row![
+                                    tooltip(
+                                        button(text('\u{E800}')
+                                            .font(CUSTOM_FONT))
+                                            .on_press(Message::CopyClipboard(self.output_text.text())),
+                                        text(" Скопировать Хэш"),
+                                        tooltip::Position::FollowCursor
+                                    )
+                                ],
+                                text("Результат Хэширования"),
+                                text_editor( &self.output_text)
+                                    .placeholder("Результат хэширования")
+                                    .wrapping(text::Wrapping::WordOrGlyph)
+                                    .height(1000)
+                                    .padding(10) 
                             ]
+                        ]
                 );
 
-                column.spacing(5).into()
+                column.spacing(20).into()
             },
             _ => {column.spacing(5).into()}
         }
     }
+}
+
+async fn pick_file() -> Result<String, String>
+{
+    let handle = rfd::AsyncFileDialog::new()
+        .set_title(" Choose a file...")
+        .pick_file()
+        .await;
+
+    match handle {
+        Some(file) => return Ok(fs::read_to_string(file.path()).unwrap()),
+        None => return Err("File not open".to_string()),
+    };
 }

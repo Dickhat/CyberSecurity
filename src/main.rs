@@ -1,14 +1,13 @@
 mod gui;
 mod algorithms;
 
-use iced::Task;
+use iced::{Settings, Task};
 use gui::GUI;
 
 use crate::gui::greet_screen;
 use crate::gui::greet_screen::Credentials;
 use crate::gui::cryptography;
 use crate::gui::cryptography::Cryptography;
-
 
 pub struct App 
 {
@@ -71,6 +70,11 @@ impl App
 fn main() -> iced::Result {
     // run the app from main function
     iced::application("Greetings", App::update, App::view)
-        .theme(|_s| iced::Theme::KanagawaDragon)
+        .settings(Settings {fonts: vec![include_bytes!("./gui/assets/fontello.ttf").as_slice().into()], ..Settings::default() })
+        .theme(|_s| iced::Theme::Ferra)
         .run_with(|| (App::new(), iced::Task::none()))
 }
+
+// Dark, Nord, SolarizedLight, GruvboxDark, TokyoNight, TokyoNightStorm, TokyoNightLight
+// CatppuccinLatte, CatppuccinFrappe, CatppuccinMacchiato, CatppuccinMocha
+// KanagawaWave, KanagawaDragon, Oxocarbon, 
