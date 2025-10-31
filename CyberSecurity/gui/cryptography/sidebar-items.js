@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Message"],"struct":["Cryptography"]};
+window.SIDEBAR_ITEMS = {"constant":["CUSTOM_FONT"],"enum":["Message"],"fn":["pick_file"],"struct":["Cryptography"]};
