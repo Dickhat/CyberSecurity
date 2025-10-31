@@ -70,7 +70,7 @@ impl App
 fn main() -> iced::Result {
     // run the app from main function
     iced::application("Greetings", App::update, App::view)
-        .settings(Settings {fonts: vec![include_bytes!("./gui/assets/fontello.ttf").as_slice().into()], ..Settings::default() })
+        .settings(Settings {fonts: vec![include_bytes!("gui/assets/fontello.ttf").as_slice().into()], ..Settings::default() })
         .theme(|_s| iced::Theme::Ferra)
         .run_with(|| (App::new(), iced::Task::none()))
 }
