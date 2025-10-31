@@ -5,6 +5,7 @@ pub mod kuznechik;
 pub mod rsa;
 pub mod streebog;
 
+#[allow(dead_code)]
 /// Печатает символы из байтовой строки с конца. Используется функция для
 /// провеки значений при отладке и тестах.
 pub fn print_bytes(bytes: &[u8]) {
@@ -13,12 +14,14 @@ pub fn print_bytes(bytes: &[u8]) {
     }
 }
 
+#[allow(dead_code)]
 /// Генерирует случайный вектор байтов, где число байтов size.
 pub fn random_vec(size: usize) -> Vec<u8> {
     let mut rng = rand::thread_rng();
     (0..size).map(|_| rng.gen::<u8>()).collect()
 }
 
+#[allow(dead_code)]
 /// Перевод шестнацетиричных чисел в байты (Исходное представление big Endian)
 pub fn hex_to_bytes(hex: &str) -> Vec<u8> {
     (0..hex.len())
@@ -66,6 +69,7 @@ pub fn sum_mod2<const N: usize>(str1: &[u8; N], str2: &[u8; N]) -> [u8; N] {
     res
 }
 
+#[allow(dead_code)]
 /// Суммирование по модулю 2 срезов
 pub fn sum_mod2_slice(str1: &[u8], str2: &[u8]) -> Result<Vec<u8>, String> {
     let mut res = vec![];

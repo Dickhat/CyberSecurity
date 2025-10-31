@@ -4,6 +4,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct RsaData {
     pub p: U256,           // primary number one
@@ -13,6 +14,7 @@ pub struct RsaData {
     pub private_key: U512, // d - private exponent
 }
 
+#[allow(dead_code)]
 impl RsaData {
     // Быстрое возведение в степень и модуль
     fn modpow(mut base: U512, mut exp: U512, modulus: U512) -> U512 {
@@ -315,6 +317,7 @@ impl RsaData {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct RsaDataU32768 {
     pub p: U16384,           // primary number one
@@ -324,6 +327,7 @@ pub struct RsaDataU32768 {
     pub private_key: U32768, // d - private exponent
 }
 
+#[allow(dead_code)]
 // Доделать encrypt/decrypt
 impl RsaDataU32768 {
     // Переполнение

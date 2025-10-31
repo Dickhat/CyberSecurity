@@ -2,16 +2,19 @@ use std::vec;
 
 use super::{kuznechik::Kuznechik, sum_mod2, sum_mod2_slice, sum_mod2_wo};
 
+#[allow(dead_code)]
 pub struct CMAC {
     k: Vec<u8>,
     k1: [u8; 16],
     k2: [u8; 16],
 }
 
+#[allow(dead_code)]
 pub struct CipherModes {
     keys: Kuznechik,
 }
 
+#[allow(dead_code)]
 impl CMAC {
     /// Генерация вспомогательных ключей K, K1, K2 для CMAC
     pub fn new() -> Result<Self, String> {
@@ -117,6 +120,7 @@ impl CMAC {
     }
 }
 
+#[allow(dead_code)]
 impl CipherModes {
     /// Создание структуры CipherModes с хранилищем ключей внутри,
     /// также обеспечивает вызов методов шифрования/расшифрования блочных шифров
