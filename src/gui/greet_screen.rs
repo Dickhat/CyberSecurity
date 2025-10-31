@@ -129,7 +129,7 @@ impl Credentials {
                 .padding([10, 100])
                 .on_press(Message::AnonAccess)
         ]
-        .align_x(iced::Alignment::Center); //.into()
+        .align_x(iced::Alignment::Center);
 
         container(greet_form)
             .padding(100)

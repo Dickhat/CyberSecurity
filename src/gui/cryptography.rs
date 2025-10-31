@@ -1,4 +1,4 @@
-use iced::{Length, Task, clipboard, widget::{button, center, column, row, text, text_editor, tooltip}};
+use iced::{Length, Task, alignment::Horizontal, clipboard, widget::{button, center, column, row, text, text_editor, tooltip}};
 use rfd;
 use crate::algorithms::streebog::streebog_string;
 
@@ -42,6 +42,7 @@ impl Cryptography {
     {
         match message {
             Message::Select => {
+                self.state = Message::Select;
             },
             Message::RSA => {
 
@@ -90,25 +91,58 @@ impl Cryptography {
 
     pub fn view(&self) -> iced::Element<'_, Message>
     {
-        let mut column =  column![text(format!(" User: {}", self.login)).size(18)];
+        let mut column:iced::widget::Column<'_, Message> = column![];
+
+        if let Message::Select = self.state
+        {
+            column = column.push(column![text(format!(" User: {}", self.login)).center().size(18)]);
+        }
+        else
+        {
+            column = column.push(
+                column![
+                    row![
+                        tooltip(
+                            button(text('\u{E80E}')
+                                .font(CUSTOM_FONT))
+                                .on_press(Message::Select),
+                            text("Возврат к выбору алгоритмов"),
+                            tooltip::Position::FollowCursor
+                        ),
+                        text(format!(" User: {}", self.login))
+                            .size(18)
+                            .align_x(Horizontal::Right)
+                    ]
+                ]
+            );
+        }
+
         column = column.push(iced::widget::horizontal_rule(2));
 
         match self.state
         {
             Message::Select => {
-                column = column.push(row![
-                        text("").width(Length::Fill),
-                        iced::widget::button(" RSA (Асимметричное шифрование)").on_press(Message::RSA),
-                        iced::widget::button(" Streebog (Хэширование)").on_press(Message::Streebog),
-                        iced::widget::button(" Kuznehcik (Блочное шифрование)").on_press(Message::Kuznechick),
-                        text("").width(Length::Fill),
-                    ].spacing(10));
-
+                column = column.push(
+                    column![
+                        text("Выберите один из алгоритмов предложенных ниже")
+                            .size(24)
+                            .width(Length::Fill)
+                            .align_x(iced::alignment::Horizontal::Center),
+                        row![
+                            text("").width(Length::Fill),
+                            button(" RSA (Асимметричное шифрование)").on_press(Message::RSA),
+                            button(" Streebog (Хэширование)").on_press(Message::Streebog),
+                            button(" Kuznehcik (Блочное шифрование)").on_press(Message::Kuznechick),
+                            text("").width(Length::Fill),
+                        ].spacing(10)
+                    ].spacing(20));
                 column.spacing(5).into()
             },
             Message::Streebog => {
                 column = column.push(text("Хэширование алгоритмом Стрибог (ГОСТ Р 34.11-2018)")
-                            .size(24).width(Length::Fill).align_x(iced::alignment::Horizontal::Center));
+                            .size(24)
+                            .width(Length::Fill)
+                            .align_x(iced::alignment::Horizontal::Center));
                 column = column.push(
                     row![
                             column![      
