@@ -51,46 +51,45 @@
 <a href=#51 id=51 data-nosnippet>51</a>                    <span class="kw">let </span>task = crypt.update(message);
 <a href=#52 id=52 data-nosnippet>52</a>                    <span class="kw">return  </span>task.map(Message::Cryptography);
 <a href=#53 id=53 data-nosnippet>53</a>                }
-<a href=#54 id=54 data-nosnippet>54</a>            },
-<a href=#55 id=55 data-nosnippet>55</a>            <span class="kw">_ </span>=&gt; {}
-<a href=#56 id=56 data-nosnippet>56</a>        }
-<a href=#57 id=57 data-nosnippet>57</a>
-<a href=#58 id=58 data-nosnippet>58</a>        iced::Task::none()
-<a href=#59 id=59 data-nosnippet>59</a>    }
-<a href=#60 id=60 data-nosnippet>60</a>
-<a href=#61 id=61 data-nosnippet>61</a>    <span class="kw">fn </span>view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; iced::Element&lt;<span class="lifetime">'_</span>, Message&gt;
-<a href=#62 id=62 data-nosnippet>62</a>    {
-<a href=#63 id=63 data-nosnippet>63</a>        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.screen {
-<a href=#64 id=64 data-nosnippet>64</a>            GUI::Autorhization(credentials) =&gt; credentials.view().map(Message::Autorhization),
-<a href=#65 id=65 data-nosnippet>65</a>            GUI::Cryptography(crypt) =&gt; crypt.view().map(Message::Cryptography)
-<a href=#66 id=66 data-nosnippet>66</a>        }
-<a href=#67 id=67 data-nosnippet>67</a>    }
-<a href=#68 id=68 data-nosnippet>68</a>}
-<a href=#69 id=69 data-nosnippet>69</a>
-<a href=#70 id=70 data-nosnippet>70</a><span class="kw">fn </span>main() -&gt; iced::Result {
-<a href=#71 id=71 data-nosnippet>71</a>    <span class="kw">const </span>ICON_BYTES: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">"gui/assets/papich3.ico"</span>);
-<a href=#72 id=72 data-nosnippet>72</a>    <span class="kw">let </span>icon = window::icon::from_file_data(ICON_BYTES, <span class="prelude-val">None</span>).unwrap();
-<a href=#73 id=73 data-nosnippet>73</a>
-<a href=#74 id=74 data-nosnippet>74</a>    <span class="comment">// Параметры окна при запуске
-<a href=#75 id=75 data-nosnippet>75</a>    </span><span class="kw">let </span>window = window::Settings {
-<a href=#76 id=76 data-nosnippet>76</a>                size: iced::Size{width: <span class="number">800.0</span>, height: <span class="number">600.0</span>},
-<a href=#77 id=77 data-nosnippet>77</a>                resizable: <span class="bool-val">true</span>,
-<a href=#78 id=78 data-nosnippet>78</a>                decorations: <span class="bool-val">true</span>,
-<a href=#79 id=79 data-nosnippet>79</a>                icon: <span class="prelude-val">Some</span>(icon),
-<a href=#80 id=80 data-nosnippet>80</a>                ..Default::default()
-<a href=#81 id=81 data-nosnippet>81</a>    };
-<a href=#82 id=82 data-nosnippet>82</a>
-<a href=#83 id=83 data-nosnippet>83</a>    <span class="comment">// run the app from main function
-<a href=#84 id=84 data-nosnippet>84</a>    </span>iced::application(<span class="string">"Greetings"</span>, App::update, App::view)
-<a href=#85 id=85 data-nosnippet>85</a>        .settings(Settings {
-<a href=#86 id=86 data-nosnippet>86</a>            fonts: <span class="macro">vec!</span>[<span class="macro">include_bytes!</span>(<span class="string">"gui/assets/fontello.ttf"</span>).as_slice().into()],
-<a href=#87 id=87 data-nosnippet>87</a>            ..Default::default()
-<a href=#88 id=88 data-nosnippet>88</a>        })
-<a href=#89 id=89 data-nosnippet>89</a>        .window(window)
-<a href=#90 id=90 data-nosnippet>90</a>        .theme(|_s| iced::Theme::CatppuccinMocha)
-<a href=#91 id=91 data-nosnippet>91</a>        .run_with(|| (App::new(), iced::Task::none()))
-<a href=#92 id=92 data-nosnippet>92</a>}
-<a href=#93 id=93 data-nosnippet>93</a>
-<a href=#94 id=94 data-nosnippet>94</a><span class="comment">// Dark, Nord, SolarizedLight, GruvboxDark, TokyoNight, TokyoNightStorm, TokyoNightLight
-<a href=#95 id=95 data-nosnippet>95</a>// CatppuccinLatte, CatppuccinFrappe, CatppuccinMacchiato, CatppuccinMocha
-<a href=#96 id=96 data-nosnippet>96</a>// KanagawaWave, KanagawaDragon, Oxocarbon, </span></code></pre></div></section></main></body></html>
+<a href=#54 id=54 data-nosnippet>54</a>            }
+<a href=#55 id=55 data-nosnippet>55</a>        }
+<a href=#56 id=56 data-nosnippet>56</a>
+<a href=#57 id=57 data-nosnippet>57</a>        iced::Task::none()
+<a href=#58 id=58 data-nosnippet>58</a>    }
+<a href=#59 id=59 data-nosnippet>59</a>
+<a href=#60 id=60 data-nosnippet>60</a>    <span class="kw">fn </span>view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; iced::Element&lt;<span class="lifetime">'_</span>, Message&gt;
+<a href=#61 id=61 data-nosnippet>61</a>    {
+<a href=#62 id=62 data-nosnippet>62</a>        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.screen {
+<a href=#63 id=63 data-nosnippet>63</a>            GUI::Autorhization(credentials) =&gt; credentials.view().map(Message::Autorhization),
+<a href=#64 id=64 data-nosnippet>64</a>            GUI::Cryptography(crypt) =&gt; crypt.view().map(Message::Cryptography)
+<a href=#65 id=65 data-nosnippet>65</a>        }
+<a href=#66 id=66 data-nosnippet>66</a>    }
+<a href=#67 id=67 data-nosnippet>67</a>}
+<a href=#68 id=68 data-nosnippet>68</a>
+<a href=#69 id=69 data-nosnippet>69</a><span class="kw">fn </span>main() -&gt; iced::Result {
+<a href=#70 id=70 data-nosnippet>70</a>    <span class="kw">const </span>ICON_BYTES: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">"gui/assets/papich3.ico"</span>);
+<a href=#71 id=71 data-nosnippet>71</a>    <span class="kw">let </span>icon = window::icon::from_file_data(ICON_BYTES, <span class="prelude-val">None</span>).unwrap();
+<a href=#72 id=72 data-nosnippet>72</a>
+<a href=#73 id=73 data-nosnippet>73</a>    <span class="comment">// Параметры окна при запуске
+<a href=#74 id=74 data-nosnippet>74</a>    </span><span class="kw">let </span>window = window::Settings {
+<a href=#75 id=75 data-nosnippet>75</a>                size: iced::Size{width: <span class="number">800.0</span>, height: <span class="number">600.0</span>},
+<a href=#76 id=76 data-nosnippet>76</a>                resizable: <span class="bool-val">true</span>,
+<a href=#77 id=77 data-nosnippet>77</a>                decorations: <span class="bool-val">true</span>,
+<a href=#78 id=78 data-nosnippet>78</a>                icon: <span class="prelude-val">Some</span>(icon),
+<a href=#79 id=79 data-nosnippet>79</a>                ..Default::default()
+<a href=#80 id=80 data-nosnippet>80</a>    };
+<a href=#81 id=81 data-nosnippet>81</a>
+<a href=#82 id=82 data-nosnippet>82</a>    <span class="comment">// run the app from main function
+<a href=#83 id=83 data-nosnippet>83</a>    </span>iced::application(<span class="string">"Greetings"</span>, App::update, App::view)
+<a href=#84 id=84 data-nosnippet>84</a>        .settings(Settings {
+<a href=#85 id=85 data-nosnippet>85</a>            fonts: <span class="macro">vec!</span>[<span class="macro">include_bytes!</span>(<span class="string">"gui/assets/fontello.ttf"</span>).as_slice().into()],
+<a href=#86 id=86 data-nosnippet>86</a>            ..Default::default()
+<a href=#87 id=87 data-nosnippet>87</a>        })
+<a href=#88 id=88 data-nosnippet>88</a>        .window(window)
+<a href=#89 id=89 data-nosnippet>89</a>        .theme(|_s| iced::Theme::CatppuccinMocha)
+<a href=#90 id=90 data-nosnippet>90</a>        .run_with(|| (App::new(), iced::Task::none()))
+<a href=#91 id=91 data-nosnippet>91</a>}
+<a href=#92 id=92 data-nosnippet>92</a>
+<a href=#93 id=93 data-nosnippet>93</a><span class="comment">// Dark, Nord, SolarizedLight, GruvboxDark, TokyoNight, TokyoNightStorm, TokyoNightLight
+<a href=#94 id=94 data-nosnippet>94</a>// CatppuccinLatte, CatppuccinFrappe, CatppuccinMacchiato, CatppuccinMocha
+<a href=#95 id=95 data-nosnippet>95</a>// KanagawaWave, KanagawaDragon, Oxocarbon, </span></code></pre></div></section></main></body></html>
