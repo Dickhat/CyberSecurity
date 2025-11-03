@@ -1,7 +1,7 @@
 mod gui;
 mod algorithms;
 
-use iced::{Settings, Task};
+use iced::{Settings, Task, window};
 use gui::GUI;
 
 use crate::gui::greet_screen;
@@ -51,8 +51,7 @@ impl App
                     let task = crypt.update(message);
                     return  task.map(Message::Cryptography);
                 }
-            },
-            _ => {}
+            }
         }
 
         iced::Task::none()
@@ -68,10 +67,26 @@ impl App
 }
 
 fn main() -> iced::Result {
+    const ICON_BYTES: &[u8] = include_bytes!("gui/assets/papich3.ico");
+    let icon = window::icon::from_file_data(ICON_BYTES, None).unwrap();
+
+    // Параметры окна при запуске
+    let window = window::Settings {
+                size: iced::Size{width: 800.0, height: 600.0},
+                resizable: true,
+                decorations: true,
+                icon: Some(icon),
+                ..Default::default()
+    };
+
     // run the app from main function
     iced::application("Greetings", App::update, App::view)
-        .settings(Settings {fonts: vec![include_bytes!("gui/assets/fontello.ttf").as_slice().into()], ..Settings::default() })
-        .theme(|_s| iced::Theme::Ferra)
+        .settings(Settings {
+            fonts: vec![include_bytes!("gui/assets/fontello.ttf").as_slice().into()],
+            ..Default::default()
+        })
+        .window(window)
+        .theme(|_s| iced::Theme::CatppuccinMocha)
         .run_with(|| (App::new(), iced::Task::none()))
 }
 

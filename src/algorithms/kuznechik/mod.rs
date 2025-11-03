@@ -6,9 +6,7 @@ use std::{
 };
 
 use crate::algorithms::{
-    hex_to_bytes,
-    kuznechik::consts::{KUZ_PI, KUZ_PI_INV, L_VEC},
-    to_hex,
+    hex_to_bytes, kuznechik::consts::{KUZ_PI, KUZ_PI_INV, L_VEC}, random_vec, to_hex
 };
 
 pub mod consts;
@@ -19,6 +17,13 @@ pub struct Kuznechik {
 
 #[allow(dead_code)]
 impl Kuznechik {
+    // Создает структуру с инициализированными изначально ключами
+    pub fn new() -> Self {
+        Self {
+            keys: Self::key_generate(),
+        }
+    }
+
     /// Конечное поле GF(2){x}/p(x), где р(х) = х^8 + х^7 + х^6 + х + 1 принадлежит GF(2){x};
     /// элементы поля F представляются целыми числами, причем элементу z0 + z1•t + ... + z7•t, принадлежащему F, соответствует число z0+ 2•z1 + ...+2•z7,
     /// где zi принадлежит {0, 1}, i = 0, 1,..., 7, и t обозначает класс вычетов по модулю р(х), содержащий х;
@@ -203,9 +208,9 @@ impl Kuznechik {
         let c_vec = Self::iterational_constants();
 
         // Ключ из ГОСТ Р. Возможно после заменить на случайную генерацию
-        let mut k =
-            hex_to_bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef");
-        k.reverse();
+        let k = random_vec(32);
+        //hex_to_bytes("8899aabbccddeeff0011223344556677fedcba98765432100123456789abcdef");
+        //k.reverse();
 
         let mut k_vec: Vec<[u8; 16]> = Vec::with_capacity(10); // Все итерационные ключи
 
@@ -230,14 +235,14 @@ impl Kuznechik {
 
         let pair_keys = (k, k_vec);
 
-        let path: PathBuf = PathBuf::from("./Kuznechik_keys");
-        Self::save_keys_into_file(&pair_keys, &path);
+        //let path: PathBuf = PathBuf::from("./Kuznechik_keys");
+        //let _ = Self::save_keys_into_file(&pair_keys, &path);
 
         pair_keys
     }
 
     // Создание остальных ключей на основе переданного
-    pub fn key_generate_with_precopmuted_key(key: &[u8]) -> (Vec<u8>, Vec<[u8; 16]>) {
+    pub fn key_generate_with_precopmuted_key(key: &[u8]) ->(Vec<u8>, Vec<[u8; 16]>) {
         let c_vec = Self::iterational_constants();
 
         // Ключ, на основе которого будут считать остальные ключи
@@ -273,30 +278,56 @@ impl Kuznechik {
         (k.to_vec(), k_vec)
     }
 
-    pub fn save_keys_into_file(keys: &(Vec<u8>, Vec<[u8; 16]>), path: &PathBuf) -> PathBuf {
-        let mut file = File::create(path).unwrap();
+    pub fn save_keys_into_file(keys: &(Vec<u8>, Vec<[u8; 16]>), path: &PathBuf) ->  Result<PathBuf, String> {
+        let mut file = match File::create(path) 
+        {
+            Ok(file) => file,
+            Err(_) => {return Err("Ошибка создания файла".to_string());}
+        };
 
-        writeln!(file, "K = {}", to_hex(&keys.0)).unwrap();
+        match writeln!(file, "K = {}", to_hex(&keys.0))
+        {
+            Ok(_) => {},
+            Err(_) => {return Err("Ошибка записи ключей".to_string());}
+        };
 
         // Запись всех итерационных ключей в файл
         for idx in 0..keys.1.len() {
-            writeln!(file, "K{} = {}", idx + 1, to_hex(&keys.1[idx])).unwrap();
+            match writeln!(file, "K{} = {}", idx + 1, to_hex(&keys.1[idx]))
+            {
+                Ok(_) => {},
+                Err(_) => {return Err("Ошибка записи ключей".to_string());}
+            };
         }
 
-        path.clone()
+        Ok(path.clone())
     }
 
-    pub fn get_keys_from_file(path: &PathBuf) -> (Vec<u8>, Vec<[u8; 16]>) {
-        let file = File::open(path).expect("Не удалось открыть файл");
+    pub fn get_keys_from_file(path: &PathBuf) -> Result<(Vec<u8>, Vec<[u8; 16]>), String> {
+        let file = match File::open(path)
+        {
+            Ok(file) => file,
+            Err(_) => {return Err("Ошибка открытия файла с ключами".to_string());}
+        };
+
         let reader = BufReader::new(file);
 
         let mut main_key: Vec<u8> = Vec::new();
         let mut round_keys: Vec<[u8; 16]> = Vec::new();
 
         for line in reader.lines() {
-            let line = line.expect("Ошибка чтения строки");
+            let line = match line 
+            {
+                Ok(line) => line,
+                Err(_) => {return Err(" Некорректный файл с ключами".to_string());}
+            };
 
             let parts: Vec<&str> = line.split('=').map(|s| s.trim()).collect();
+
+            if parts.len() != 2
+            {
+                return Err(" Некорректный файл с ключами".to_string());
+            }
 
             let name = parts[0];
             let value = parts[1];
@@ -313,7 +344,7 @@ impl Kuznechik {
             }
         }
 
-        (main_key, round_keys)
+        Ok((main_key, round_keys))
     }
 
     /// Шифрование Message блоками длины 128 бит
@@ -356,13 +387,6 @@ impl Kuznechik {
         a = Self::x(&self.keys.1[0], &a);
 
         Ok(a)
-    }
-
-    // Создает структуру с инициализированными изначально ключами
-    pub fn new() -> Self {
-        Self {
-            keys: Self::key_generate(),
-        }
     }
 }
 
