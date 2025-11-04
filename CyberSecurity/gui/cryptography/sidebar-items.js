@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["CUSTOM_FONT"],"enum":["KuznechickModes","Message"],"fn":["pick_file","read_file"],"struct":["Cryptography"]};
+window.SIDEBAR_ITEMS = {"constant":["CUSTOM_FONT"],"enum":["KuznechickModes","Message"],"fn":["read_file"],"struct":["Cryptography"]};
