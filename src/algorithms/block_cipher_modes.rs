@@ -11,7 +11,7 @@ pub struct CMAC {
 
 #[allow(dead_code)]
 pub struct CipherModes {
-    keys: Kuznechik,
+    pub keys: Kuznechik,
 }
 
 #[allow(dead_code)]

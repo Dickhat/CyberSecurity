@@ -1,38 +1,85 @@
-use iced::{Length, Task, alignment::Horizontal, clipboard, widget::{button, center, column, row, text, text_editor, text_editor::Content, tooltip}};
+use iced::{
+    Length, Task, alignment::Horizontal, clipboard, 
+    widget::{button, center, column, combo_box, row, text, text_editor, text_editor::Content, tooltip}};
 use rfd;
 
-use std::fmt::Write;
+use std::{fmt::Write, str::from_utf8};
 use std::fs;
 
 use crate::algorithms::to_hex;
 use crate::algorithms::streebog::streebog_string;
 use crate::algorithms::kuznechik::Kuznechik;
+use crate::algorithms::block_cipher_modes;
 
 pub struct Cryptography {
+    // General data
     login: String,
-    input_text: text_editor::Content,
-    output_text: text_editor::Content,
     state: Message,
+    error: String,
+
+    // Streebog
+    streebog_text: text_editor::Content,
+    streebog_hash: text_editor::Content,
+
+    // Kuznechik
+    kuznechik_modes: combo_box::State<KuznechickModes>,
+    current_mode: Option<KuznechickModes>,  
     keys_kuznechik: Kuznechik,
-    keys_kuznechik_text: text_editor::Content,
-    error: String
+    kuzcnechik_text: text_editor::Content,
+    keys_kuznechik_text: text_editor::Content
 }
+
+#[derive(Debug, Clone)]
+pub enum KuznechickModes {
+    ECB,
+    CTR,
+    OFB,
+    CBC,
+    CFB,
+    MAC
+}
+
+impl std::fmt::Display for KuznechickModes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            KuznechickModes::ECB => "ECB",
+            KuznechickModes::CTR => "CTR",
+            KuznechickModes::OFB => "OFB",
+            KuznechickModes::CBC => "CBC",
+            KuznechickModes::CFB => "CFB",
+            KuznechickModes::MAC => "MAC",
+        })
+    }
+}
+
 
 #[derive(Debug, Clone)]
 pub enum Message {
     Select,
-    RSA,
     CurrentState,
+
+    RSA,
+
+    // Все состояния, связанные со Стрибогом
     Streebog,
-    StreebogInput(text_editor::Action),
     StreebogCompute,
+
+    // Все состояния, связанные с Кузнечиком
     Kuznechick,
+    KuznechickChangeMode(KuznechickModes),
+    KuznechickSaveFile(String),
+
     KuznechickKeys,
+    KuznechickKeysGenerate,
     KuznechickKeysLoad,
     KuznechickKeysSave,
-    KuznechickKeysGenerate,
+
     KuznechickEncryption,
-    KuznechickDecryption,
+    KuznechickEncryptionCompute,
+    KuznechickDecryptionCompute,
+
+    // Все состояния, связанные с побочными операциями
+    InputTextEditor(text_editor::Action),
     CopyClipboard(String),
     PickFile,
     FileOpened(String)
@@ -46,12 +93,24 @@ impl Cryptography {
         Self
         {
             login, 
-            input_text: text_editor::Content::new(), 
-            output_text: text_editor::Content::new(),
             state: Message::Select,
+            error: String::new(),
+
+            streebog_text: text_editor::Content::new(), 
+            streebog_hash: text_editor::Content::new(),
+
             keys_kuznechik: Kuznechik { keys: (Vec::new(), vec![[0u8; 16]; 10]) },
-            keys_kuznechik_text: text_editor::Content::new(),
-            error: String::new()
+            kuznechik_modes: combo_box::State::new(vec![
+                KuznechickModes::ECB,
+                KuznechickModes::CTR,
+                KuznechickModes::OFB,
+                KuznechickModes::CBC,
+                KuznechickModes::CFB,
+                KuznechickModes::MAC
+            ]),
+            current_mode: None,
+            kuzcnechik_text: text_editor::Content::new(),
+            keys_kuznechik_text: text_editor::Content::new()
         }
     }
 
@@ -89,23 +148,37 @@ impl Cryptography {
             Message::Streebog => {
                 self.state = Message::Streebog;
             },
-            Message::StreebogInput(content) => {
-                self.input_text.perform(content);
-            },
             Message::StreebogCompute => {
-                let text = self.input_text.text();
+                let text = self.streebog_text.text();
                 
                 if !text.is_empty() && text != "\n"
                 {
                     match streebog_string(text, 256) 
                     {
-                        Ok(res) => self.output_text = text_editor::Content::with_text(&res),
-                        Err(err_message) => self.output_text = text_editor::Content::with_text(&err_message),
+                        Ok(res) => self.streebog_hash = text_editor::Content::with_text(&res),
+                        Err(err_message) => self.streebog_hash = text_editor::Content::with_text(&err_message),
                     }
                 }
             }
             Message::Kuznechick => {
                 self.state = Message::Kuznechick;
+            },
+            Message::KuznechickChangeMode(mode) => {
+                self.current_mode = Some(mode);
+            },
+            Message::KuznechickSaveFile(text) => {
+                match rfd::FileDialog::new()
+                    .set_title(" Сохранение файла с текстом...")
+                    .save_file()
+                    {
+                        Some(path) => fs::write(path, text).unwrap(),
+                        None => {
+                            self.error = "Не удалось сохранить файл текста".to_string();
+                            return Task::none();
+                        }
+                    }
+                
+                self.error = String::new();
             },
             Message::KuznechickKeys => {
                 self.state = Message::KuznechickKeys;
@@ -143,6 +216,8 @@ impl Cryptography {
                         return Task::none();
                     }
                 };
+
+                self.error = String::new();
             },
             Message::KuznechickKeysSave => {
                 match rfd::FileDialog::new()
@@ -153,13 +228,19 @@ impl Cryptography {
                             match self.keys_to_string()
                             {
                                 Ok(res) => fs::write(path, res).unwrap(),
-                                Err(_) => self.error = "Не удалось сохранить файл с ключами".to_string()
+                                Err(_) => {
+                                    self.error = "Не удалось сохранить файл с ключами".to_string();
+                                    return Task::none();
+                                }
                             }
                         ,
-                        None => self.error = "Не удалось сохранить файл с ключами".to_string()
+                        None => {
+                            self.error = "Не удалось сохранить файл с ключами".to_string();
+                            return Task::none();
+                        }
                     }
                 
-                return Task::none();
+                self.error = String::new();
             },
             Message::KuznechickKeysGenerate => {
                 self.keys_kuznechik = Kuznechik { keys: Kuznechik::key_generate() };
@@ -174,9 +255,116 @@ impl Cryptography {
                         return Task::none();
                     }
                 };
+
+                self.error = String::new();
             },
-            Message::KuznechickEncryption => {},
-            Message::KuznechickDecryption => {},
+            Message::KuznechickEncryption => {
+                self.state = Message::KuznechickEncryption;
+            },
+            Message::KuznechickEncryptionCompute => {
+                match self.current_mode 
+                {
+                    Some(KuznechickModes::CBC) => {
+                        let output: Vec<[u8; 16]> = block_cipher_modes::CipherModes::ecb_encrypt(
+                            &block_cipher_modes::CipherModes{keys: self.keys_kuznechik.clone()}, 
+                            self.kuzcnechik_text.text().as_bytes()
+                        );
+
+                        let output_bytes: Vec<u8> = output.iter().flatten().copied().collect();
+
+                        match rfd::FileDialog::new()
+                            .set_title(" Сохранение файла с зашифрованными данными...")
+                            .set_file_name("CBC")
+                            .save_file()
+                            {
+                                Some(path) => fs::write(path, output_bytes).unwrap(),
+                                None => {
+                                    self.error = "Не удалось сохранить файл с данными".to_string();
+                                    return Task::none();
+                                }
+                            }
+                        
+                        self.error = String::new();
+                    },
+                    Some(KuznechickModes::CFB) => {
+
+                    },
+                    Some(KuznechickModes::CTR) => {
+
+                    },
+                    Some(KuznechickModes::ECB) => {
+
+                    },
+                    Some(KuznechickModes::OFB) => {
+
+                    },
+                    Some(KuznechickModes::MAC) => {
+
+                    },
+                    None => {
+                        self.error = "Ни один из режимов работы Кузнечика не был выбран".to_string();
+                        return Task::none();
+                    }
+                }
+            }
+            Message::KuznechickDecryptionCompute => {
+                let data = match read_file() {
+                    Ok(data) => data,
+                    Err(message) => {
+                        self.error = message;
+                        return Task::none();
+                    }
+                };
+
+                match self.current_mode 
+                {
+                    Some(KuznechickModes::CBC) => {
+                        let output = block_cipher_modes::CipherModes::ecb_decrypt(
+                            &block_cipher_modes::CipherModes{keys: self.keys_kuznechik.clone()}, 
+                            &data
+                        );
+
+                        let decrypted_data = match from_utf8(&output) {
+                            Ok(data) => data,
+                            Err(_) => {
+                                self.error = "Некорректные ключи для данного файла".to_string();
+                                return Task::none();
+                            }
+                        };
+
+                        self.kuzcnechik_text = text_editor::Content::with_text(decrypted_data);
+                        self.error = String::new();
+                    },
+                    Some(KuznechickModes::CFB) => {
+
+                    },
+                    Some(KuznechickModes::CTR) => {
+
+                    },
+                    Some(KuznechickModes::ECB) => {
+
+                    },
+                    Some(KuznechickModes::OFB) => {
+
+                    },
+                    Some(KuznechickModes::MAC) => {
+
+                    },
+                    None => {
+                        self.error = "Ни один из режимов работы Кузнечика не был выбран".to_string();
+                        return Task::none();
+                    }
+                }
+            },
+            Message::InputTextEditor(content) => {
+                if let Message::Streebog = self.state
+                {
+                    self.streebog_text.perform(content);
+                }
+                else if let Message::KuznechickEncryption = self.state {
+                    self.kuzcnechik_text.perform(content);
+                }
+            },
             Message::CopyClipboard(content) =>{
                 return clipboard::write(content).map(|_: ()| Message::CurrentState);
             },
@@ -190,9 +378,15 @@ impl Cryptography {
             },
             Message::FileOpened(text) =>
             {
-                self.input_text = text_editor::Content::with_text(&text);
+                if let Message::KuznechickEncryption = self.state
+                {
+                    self.kuzcnechik_text = text_editor::Content::with_text(&text);
+                }
+                else if let Message::Streebog = self.state {
+                    self.streebog_text = text_editor::Content::with_text(&text);
+                }
             },
-            Message::CurrentState => {}
+            _ => {}
         }
 
         Task::none()
@@ -287,14 +481,14 @@ impl Cryptography {
                                     tooltip(
                                         button(text('\u{E800}')
                                             .font(CUSTOM_FONT))
-                                            .on_press(Message::CopyClipboard(self.input_text.text())),
+                                            .on_press(Message::CopyClipboard(self.streebog_text.text())),
                                         text(" Скопировать текст"),
                                         tooltip::Position::Top
                                     )
                                 ],           
                                 text("Исходный текст"),
-                                text_editor(&self.input_text)
-                                    .on_action(Message::StreebogInput)
+                                text_editor(&self.streebog_text)
+                                    .on_action(Message::InputTextEditor)
                                     .placeholder("Исходный текст, который необходимо захэшировать")
                                     .wrapping(text::Wrapping::WordOrGlyph)
                                     .height(1000)
@@ -310,13 +504,13 @@ impl Cryptography {
                                     tooltip(
                                         button(text('\u{E800}')
                                             .font(CUSTOM_FONT))
-                                            .on_press(Message::CopyClipboard(self.output_text.text())),
+                                            .on_press(Message::CopyClipboard(self.streebog_hash.text())),
                                         text(" Скопировать Хэш"),
                                         tooltip::Position::Top
                                     )
                                 ],
                                 text("Результат Хэширования"),
-                                text_editor( &self.output_text)
+                                text_editor( &self.streebog_hash)
                                     .placeholder("Результат хэширования")
                                     .wrapping(text::Wrapping::WordOrGlyph)
                                     .height(1000)
@@ -332,9 +526,7 @@ impl Cryptography {
                     button("Управление криптографическими ключами алгоритма Кузнечик")
                         .on_press(Message::KuznechickKeys),
                     button("Шифрование алгоритмом Кузнечик")
-                        .on_press(Message::KuznechickEncryption),
-                    button("Расшифрование алгоритмом Кузнечик")
-                        .on_press(Message::KuznechickDecryption)
+                        .on_press(Message::KuznechickEncryption)
                 ].padding(10).spacing(10));
             },
             Message::KuznechickKeys => {
@@ -388,7 +580,102 @@ impl Cryptography {
                                     .height(1000)
                                     .padding(10)
                             ]]);
-            }
+            },
+            Message::KuznechickEncryption => {
+                column = column.push(text("Шифрование алгоритмом Кузнечик (ГОСТ Р 34.12-2018)")
+                            .size(24)
+                            .width(Length::Fill)
+                            .align_x(iced::alignment::Horizontal::Center));
+
+                if !self.error.is_empty()
+                {
+                    column = column
+                                .push(
+                                    text("Ошибка: ".to_string() + &self.error.clone())
+                                        .style(|_theme: &iced::Theme| iced::widget::text::Style {
+                                            color: Some(iced::Color::from_rgb(1.0, 0.0, 0.0)), // красный цвет
+                                        }));
+                }
+
+                column = column.push(
+                    row![
+                            column![      
+                                row![
+                                    tooltip(
+                                        button(text('\u{E812}')
+                                            .font(CUSTOM_FONT))
+                                            .on_press(Message::PickFile),
+                                        text("Выбор файла для шифрования"),
+                                        tooltip::Position::Top
+                                    ),
+                                    tooltip(
+                                        button(text('\u{E800}')
+                                            .font(CUSTOM_FONT))
+                                            .on_press(Message::CopyClipboard(self.kuzcnechik_text.text())),
+                                        text(" Скопировать текст в буфер обмена"),
+                                        tooltip::Position::Top
+                                    ),
+                                    tooltip(
+                                        button(text('\u{E813}')
+                                            .font(CUSTOM_FONT))
+                                            .on_press(Message::KuznechickSaveFile(self.kuzcnechik_text.text())),
+                                        text("Сохранить текст в файл"), 
+                                        tooltip::Position::Top
+                                    )
+                                ],
+                                text_editor(&self.kuzcnechik_text)
+                                    .placeholder("Здесь отображается текст, загруженный или написанный вами для шифрования, либо расшифрованный алгоритмом Кузнечик")
+                                    .wrapping(text::Wrapping::WordOrGlyph)
+                                    .on_action(Message::InputTextEditor)
+                                    .height(1000)
+                                    .padding(10)
+                            ],
+                            center(
+                                row![
+                                    column![
+                                        combo_box(
+                                            &self.kuznechik_modes, 
+                                            "Выберите режим работы...", 
+                                            self.current_mode.as_ref(), 
+                                            Message::KuznechickChangeMode
+                                        ).width(Length::Fixed(250.0)),
+                                        button("Шифровать данные")
+                                            .on_press(Message::KuznechickEncryptionCompute)
+                                            .padding(15)
+                                            .width(Length::Fixed(250.0)),
+                                        button("Расшифровать данные")
+                                            .on_press(Message::KuznechickDecryptionCompute)
+                                            .padding(15)
+                                            .width(Length::Fixed(250.0))
+                                    ]
+                                ]
+                            ),
+                            // column![      
+                            //     row![
+                            //         tooltip(
+                            //             button(text('\u{E800}')
+                            //                 .font(CUSTOM_FONT))
+                            //                 .on_press(Message::CopyClipboard(self.kuzcnechik_cipher_text.text())),
+                            //             text(" Скопировать шифротекст в буфер обмена"),
+                            //             tooltip::Position::Top
+                            //         ),
+                            //         tooltip(
+                            //             button(text('\u{E813}')
+                            //                 .font(CUSTOM_FONT))
+                            //                 .on_press(Message::KuznechickSaveFile(self.kuzcnechik_cipher_text.text())),
+                            //             text("Сохранить шифротекст в файл"), 
+                            //             tooltip::Position::Top
+                            //         )
+                            //     ],
+                            //     text("Шифротекст"),
+                            //     text_editor(&self.kuzcnechik_cipher_text)
+                            //         .placeholder("Шифротекст после шифрования алгоритмом Кузнечик")
+                            //         .wrapping(text::Wrapping::WordOrGlyph)
+                            //         .height(1000)
+                            //         .padding(10)
+                            // ],
+                        ]);
+            },
             _ => {column = column.spacing(5);}
         }
 
@@ -407,4 +694,24 @@ async fn pick_file() -> Result<String, String>
         Some(file) => return Ok(fs::read_to_string(file.path()).unwrap()),
         None => return Err("File not open".to_string()),
     };
+}
+
+// Чтение из файла байтов
+fn read_file() -> Result<Vec<u8>, String>
+{
+    let path = match rfd::FileDialog::new()
+        .set_title(" Выберите файл для расшифрования...")
+        .pick_file()
+        {
+            Some(path_buf) => path_buf,
+            None => {
+                return  Err("Некорректный файл для расшифрования".to_string());
+            }
+    };
+
+    match fs::read(path)
+    {
+        Ok(data) => Ok(data),
+        Err(_) => Err("Файла не существует".to_string())
+    }
 }

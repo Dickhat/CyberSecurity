@@ -11,6 +11,7 @@ use crate::algorithms::{
 
 pub mod consts;
 
+#[derive(Debug, Clone)]
 pub struct Kuznechik {
     pub keys: (Vec<u8>, Vec<[u8; 16]>),
 }
