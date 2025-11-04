@@ -81,8 +81,7 @@ pub enum Message {
     // Все состояния, связанные с побочными операциями
     InputTextEditor(text_editor::Action),
     CopyClipboard(String),
-    PickFile,
-    FileOpened(String)
+    PickFile
 }
 
 const CUSTOM_FONT: iced::Font = iced::Font::with_name("fontello");
@@ -156,9 +155,14 @@ impl Cryptography {
                     match streebog_string(text, 256) 
                     {
                         Ok(res) => self.streebog_hash = text_editor::Content::with_text(&res),
-                        Err(err_message) => self.streebog_hash = text_editor::Content::with_text(&err_message),
+                        Err(message) => {
+                            self.error = message;
+                            return Task::none();
+                        }
                     }
                 }
+
+                self.error = String::new();
             }
             Message::Kuznechick => {
                 self.state = Message::Kuznechick;
@@ -262,6 +266,11 @@ impl Cryptography {
                 self.state = Message::KuznechickEncryption;
             },
             Message::KuznechickEncryptionCompute => {
+                if self.keys_kuznechik.keys.0.is_empty() {
+                    self.error = "Ключи не были созданы".to_string();
+                    return Task::none();
+                }
+
                 match self.current_mode 
                 {
                     Some(KuznechickModes::CBC) => {
@@ -308,6 +317,11 @@ impl Cryptography {
                 }
             }
             Message::KuznechickDecryptionCompute => {
+                if self.keys_kuznechik.keys.0.is_empty() {
+                    self.error = "Ключи не были созданы".to_string();
+                    return Task::none();
+                }
+
                 let data = match read_file() {
                     Ok(data) => data,
                     Err(message) => {
@@ -369,22 +383,34 @@ impl Cryptography {
                 return clipboard::write(content).map(|_: ()| Message::CurrentState);
             },
             Message::PickFile => {
-                return Task::perform(pick_file(), |content| {
-                    match content {
-                        Ok(text) => Message::FileOpened(text),
-                        Err(_) => Message::CurrentState
-                    }
-                });
-            },
-            Message::FileOpened(text) =>
-            {
-                if let Message::KuznechickEncryption = self.state
+                match read_file() 
                 {
-                    self.kuzcnechik_text = text_editor::Content::with_text(&text);
-                }
-                else if let Message::Streebog = self.state {
-                    self.streebog_text = text_editor::Content::with_text(&text);
-                }
+                    Ok(bytes) =>
+                    {
+                        let text = match from_utf8(&bytes) {
+                            Ok(text) => text,
+                            Err(_) => {
+                                self.error = "Некорректный файл. Используйте текстовый файл".to_string();
+                                return Task::none();
+                            }
+                        };
+
+                        // Определение у какого алгоритма изменять текст
+                        if let Message::KuznechickEncryption = self.state
+                        {
+                            self.kuzcnechik_text = text_editor::Content::with_text(&text.to_string());
+                        }
+                        else if let Message::Streebog = self.state {
+                            self.streebog_text = text_editor::Content::with_text(&text.to_string());
+                        }
+                    },
+                    Err(message) => {
+                        self.error = message;
+                        return Task::none();
+                    }
+                };
+
+                self.error = String::new();
             },
             _ => {}
         }
@@ -396,14 +422,30 @@ impl Cryptography {
     {
         let mut column:iced::widget::Column<'_, Message> = column![];
 
-        if let Message::Select = self.state
-        {
-            column = column.push(column![text(format!(" User: {}", self.login)).center().size(18)]);
-        }
-        // Отрисовывать кнопку "Возврат к опциям алгоритма Кузнечик"
-        else if let Message::KuznechickKeys = self.state
-        {
-            column = column.push(
+        match self.state {
+            Message::Select => {
+                column = column.push(column![text(format!(" User: {}", self.login)).center().size(18)]);
+            },
+            Message::KuznechickKeys => {
+                column = column.push(
+                    column![
+                        row![
+                            tooltip(
+                                button(text('\u{E80E}')
+                                    .font(CUSTOM_FONT))
+                                    .on_press(Message::Kuznechick),
+                                text("Возврат к выбору опций алгоритма Кузнечик"),
+                                tooltip::Position::Bottom
+                            ),
+                            text(format!(" User: {}", self.login))
+                                .size(18)
+                                .align_x(Horizontal::Right)
+                        ]
+                    ]
+                );
+            },
+            Message::KuznechickEncryption => {
+                column = column.push(
                 column![
                     row![
                         tooltip(
@@ -416,29 +458,28 @@ impl Cryptography {
                         text(format!(" User: {}", self.login))
                             .size(18)
                             .align_x(Horizontal::Right)
+                        ]
                     ]
-                ]
-            );
-        }
-        // Отрисовывать кнопку "Возврат к выбору алгоритмов"
-        else
-        {
-            column = column.push(
-                column![
-                    row![
-                        tooltip(
-                            button(text('\u{E80E}')
-                                .font(CUSTOM_FONT))
-                                .on_press(Message::Select),
-                            text("Возврат к выбору алгоритмов"),
-                            tooltip::Position::Bottom
-                        ),
-                        text(format!(" User: {}", self.login))
-                            .size(18)
-                            .align_x(Horizontal::Right)
+                );
+            },
+            _ => {
+                column = column.push(
+                    column![
+                        row![
+                            tooltip(
+                                button(text('\u{E80E}')
+                                    .font(CUSTOM_FONT))
+                                    .on_press(Message::Select),
+                                text("Возврат к выбору алгоритмов"),
+                                tooltip::Position::Bottom
+                            ),
+                            text(format!(" User: {}", self.login))
+                                .size(18)
+                                .align_x(Horizontal::Right)
+                        ]
                     ]
-                ]
-            );
+                );
+            }
         }
 
         column = column.push(iced::widget::horizontal_rule(2));
@@ -467,6 +508,17 @@ impl Cryptography {
                             .size(24)
                             .width(Length::Fill)
                             .align_x(iced::alignment::Horizontal::Center));
+
+                if !self.error.is_empty()
+                {
+                    column = column
+                                .push(
+                                    text("Ошибка: ".to_string() + &self.error.clone())
+                                        .style(|_theme: &iced::Theme| iced::widget::text::Style {
+                                            color: Some(iced::Color::from_rgb(1.0, 0.0, 0.0)), // красный цвет
+                                        }));
+                }
+
                 column = column.push(
                     row![
                             column![      
@@ -683,29 +735,16 @@ impl Cryptography {
     }
 }
 
-async fn pick_file() -> Result<String, String>
-{
-    let handle = rfd::AsyncFileDialog::new()
-        .set_title(" Choose a file...")
-        .pick_file()
-        .await;
-
-    match handle {
-        Some(file) => return Ok(fs::read_to_string(file.path()).unwrap()),
-        None => return Err("File not open".to_string()),
-    };
-}
-
 // Чтение из файла байтов
 fn read_file() -> Result<Vec<u8>, String>
 {
     let path = match rfd::FileDialog::new()
-        .set_title(" Выберите файл для расшифрования...")
+        .set_title(" Выберите файл...")
         .pick_file()
         {
             Some(path_buf) => path_buf,
             None => {
-                return  Err("Некорректный файл для расшифрования".to_string());
+                return  Err("Некорректный файл".to_string());
             }
     };
 
