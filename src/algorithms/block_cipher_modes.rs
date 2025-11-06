@@ -233,7 +233,7 @@ impl CipherModes {
 
     /// Режим простой замены (Electronic Codebook). Расшифровывает шифротекст,
     /// а также убирает padding по схеме ГОСТ Р 34.13-2018 paragraph 4.1.3
-    pub fn ecb_decrypt(&self, message: &[u8]) -> Vec<u8> {
+    pub fn ecb_decrypt(&self, message: &[u8]) -> Result<Vec<u8>, String> {
         let mut encrypted_message: Vec<u8> = vec![];
 
         // Шифрование блоками по 128 бит
@@ -244,8 +244,8 @@ impl CipherModes {
                 Ok(data) => {
                     encrypted_message.extend_from_slice(&data);
                 }
-                Err(err_msg) => {
-                    panic!("{err_msg}");
+                Err(_) => {
+                    return Err("Длина должна быть кратна 128 битам".to_string());
                 }
             }
         }
@@ -256,7 +256,7 @@ impl CipherModes {
             encrypted_message.remove(idx_check_byte);
         }
 
-        encrypted_message
+        Ok(encrypted_message)
     }
 
     /// Режим гаммирования (Counter) с входным сообщением message, представленным срезом байтов,
@@ -1035,7 +1035,7 @@ mod tests {
             .flatten()
             .collect();
 
-        let decrypt_result = kuz_ecb.ecb_decrypt(&message[..]);
+        let decrypt_result = kuz_ecb.ecb_decrypt(&message[..]).unwrap();
 
         assert_eq!(decrypt_result[0..16], p1);
         assert_eq!(decrypt_result[16..32], p2);
@@ -1052,7 +1052,7 @@ mod tests {
 
         let encrypted_result = kuz_ecb.ecb_encrypt(message);
         let decrypted_result =
-            kuz_ecb.ecb_decrypt(&encrypted_result.into_iter().flatten().collect::<Vec<u8>>()[..]);
+            kuz_ecb.ecb_decrypt(&encrypted_result.into_iter().flatten().collect::<Vec<u8>>()[..]).unwrap();
 
         //println!("Decrypted result = {}", String::from_utf8(decrypted_result.clone()).unwrap());
 

@@ -1,12 +1,12 @@
 use iced::{
     Length, Task, alignment::Horizontal, clipboard, 
-    widget::{button, center, column, combo_box, row, text, text_editor, text_editor::Content, tooltip}};
+    widget::{button, center, column, combo_box, row, text, text_editor, tooltip}};
 use rfd;
 
-use std::{fmt::Write, str::from_utf8};
-use std::fs;
+use rand;
+use std::{fmt::Write, str::from_utf8, fs, io::{BufRead, BufReader}, path::PathBuf};
 
-use crate::algorithms::to_hex;
+use crate::algorithms::{self, to_hex, hex_to_bytes};
 use crate::algorithms::streebog::streebog_string;
 use crate::algorithms::kuznechik::Kuznechik;
 use crate::algorithms::block_cipher_modes;
@@ -25,6 +25,7 @@ pub struct Cryptography {
     kuznechik_modes: combo_box::State<KuznechickModes>,
     current_mode: Option<KuznechickModes>,  
     keys_kuznechik: Kuznechik,
+    mods_param: (u32, u32, Vec<u8>), // s(0 < s <= 128), z (целое от 1), IV - инициализирующий вектор
     kuzcnechik_text: text_editor::Content,
     keys_kuznechik_text: text_editor::Content
 }
@@ -107,6 +108,7 @@ impl Cryptography {
                 KuznechickModes::CFB,
                 KuznechickModes::MAC
             ]),
+            mods_param: (0, 0, Vec::new()),
             current_mode: None,
             kuzcnechik_text: text_editor::Content::new(),
             keys_kuznechik_text: text_editor::Content::new()
@@ -132,7 +134,86 @@ impl Cryptography {
             };
         }
 
+        // Запись параметром алгоритмов S, M, IV
+        match writeln!(text, "S = {}\nZ = {} \nIV = {}", self.mods_param.0, self.mods_param.1, to_hex(&self.mods_param.2)) {
+            Ok(_) => {},
+            Err(_) => {return Err("Ошибка отображения ключей в интерфейсе".to_string());}
+        };
+        
         return Ok(text);
+    }
+    
+    fn get_keys_from_file(&self, path: &PathBuf) -> Result<(Vec<u8>, Vec<[u8; 16]>, u32, u32, Vec<u8>), String> {
+        let file = match fs::File::open(path)
+        {
+            Ok(file) => file,
+            Err(_) => {return Err("Ошибка открытия файла с ключами".to_string());}
+        };
+
+        let reader = BufReader::new(file);
+
+        let mut main_key: Vec<u8> = Vec::new();
+        let mut round_keys: Vec<[u8; 16]> = Vec::new();
+        let mut s = 1;
+        let mut z = 1;
+        let mut iv = Vec::new();
+
+        for line in reader.lines() {
+            let line = match line 
+            {
+                Ok(line) => line,
+                Err(_) => {return Err(" Некорректный файл с ключами".to_string());}
+            };
+
+            let parts: Vec<&str> = line.split('=').map(|s| s.trim()).collect();
+
+            if parts.len() != 2
+            {
+                return Err(" Некорректный файл с ключами".to_string());
+            }
+
+            let name = parts[0];
+            let value = parts[1];
+            let mut bytes;
+
+            if name == "K" {
+                bytes = hex_to_bytes(value);
+                bytes.reverse();
+                
+                main_key = bytes;
+            } 
+            else if name == "S"
+            {
+                s = match value.parse::<u32>() {
+                    Ok(val) => val,
+                    Err(_) => return Err("Ошибка распознавания файла с ключами".to_string())
+                };
+            } 
+            else if name == "Z"
+            {
+                z = match value.parse::<u32>() {
+                    Ok(val) => val,
+                    Err(_) => return Err("Ошибка распознавания файла с ключами".to_string())
+                };
+            } 
+            else if name == "IV"
+            {
+                bytes = hex_to_bytes(value);
+                bytes.reverse();
+
+                iv = bytes;
+            }
+            else {
+                bytes = hex_to_bytes(value);
+                bytes.reverse();
+
+                let mut arr = [0u8; 16];
+                arr.copy_from_slice(&bytes);
+                round_keys.push(arr);
+            }
+        }
+
+        Ok((main_key, round_keys, s, z, iv))
     }
 
     pub fn update(&mut self, message: Message) -> iced::Task<Message>
@@ -199,10 +280,11 @@ impl Cryptography {
                         }
                     };
 
-                match Kuznechik::get_keys_from_file(&path)
+                match self.get_keys_from_file(&path)
                 {
-                    Ok(keys) => { 
-                        self.keys_kuznechik = Kuznechik{keys}
+                    Ok(params) => { 
+                        self.keys_kuznechik = Kuznechik{keys: (params.0, params.1)};
+                        self.mods_param = (params.2, params.3, params.4)
                     },
                     Err(error) => {
                         self.error = error;
@@ -213,7 +295,7 @@ impl Cryptography {
                 // Для отображения в GUI
                 match self.keys_to_string() {
                     Ok(res) => {
-                        self.keys_kuznechik_text = Content::with_text(&res);
+                        self.keys_kuznechik_text = text_editor::Content::with_text(&res);
                     },
                     Err(error) => {
                         self.error = error;
@@ -249,10 +331,14 @@ impl Cryptography {
             Message::KuznechickKeysGenerate => {
                 self.keys_kuznechik = Kuznechik { keys: Kuznechik::key_generate() };
 
+                let (s, z) = (rand::random::<u32>() % 128 + 1, rand::random::<u32>() % 13 + 1);
+
+                self.mods_param = (s, z, algorithms::random_vec((z * 16) as usize));
+
                 // Для отображения в GUI
                 match self.keys_to_string() {
                     Ok(res) => {
-                        self.keys_kuznechik_text = Content::with_text(&res);
+                        self.keys_kuznechik_text = text_editor::Content::with_text(&res);
                     },
                     Err(error) => {
                         self.error = error;
@@ -333,10 +419,17 @@ impl Cryptography {
                 match self.current_mode 
                 {
                     Some(KuznechickModes::CBC) => {
-                        let output = block_cipher_modes::CipherModes::ecb_decrypt(
+                        let output = match block_cipher_modes::CipherModes::ecb_decrypt(
                             &block_cipher_modes::CipherModes{keys: self.keys_kuznechik.clone()}, 
                             &data
-                        );
+                        )
+                        {
+                            Ok(res) => res,
+                            Err(msg) => {
+                                self.error = msg;
+                                return Task::none();
+                            }
+                        };
 
                         let decrypted_data = match from_utf8(&output) {
                             Ok(data) => data,
@@ -422,6 +515,7 @@ impl Cryptography {
     {
         let mut column:iced::widget::Column<'_, Message> = column![];
 
+        // Отображение Top-bar
         match self.state {
             Message::Select => {
                 column = column.push(column![text(format!(" User: {}", self.login)).center().size(18)]);
