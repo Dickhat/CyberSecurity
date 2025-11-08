@@ -37,8 +37,8 @@ pub enum KuznechickModes {
     CTR,
     OFB,
     CBC,
-    CFB,
-    MAC
+    CFB
+    //MAC
 }
 
 impl std::fmt::Display for KuznechickModes {
@@ -48,8 +48,8 @@ impl std::fmt::Display for KuznechickModes {
             KuznechickModes::CTR => "CTR",
             KuznechickModes::OFB => "OFB",
             KuznechickModes::CBC => "CBC",
-            KuznechickModes::CFB => "CFB",
-            KuznechickModes::MAC => "MAC",
+            KuznechickModes::CFB => "CFB"
+            //KuznechickModes::MAC => "MAC",
         })
     }
 }
@@ -106,8 +106,8 @@ impl Cryptography {
                 KuznechickModes::CTR,
                 KuznechickModes::OFB,
                 KuznechickModes::CBC,
-                KuznechickModes::CFB,
-                KuznechickModes::MAC
+                KuznechickModes::CFB
+                //KuznechickModes::MAC
             ]),
             mods_param: (0, 0, Vec::new()),
             current_mode: None,
@@ -334,7 +334,10 @@ impl Cryptography {
             Message::KuznechickKeysGenerate => {
                 self.keys_kuznechik = Kuznechik { keys: Kuznechik::key_generate() };
 
-                let (s, z) = (rand::random::<u32>() % 128 + 1, rand::random::<u32>() % 13 + 1);
+                let mut s= rand::random::<u32>() % 128;
+                let z = rand::random::<u32>() % 13 + 1;
+
+                if s < 8 {s += 11;}
 
                 self.mods_param = (s, z, algorithms::random_vec((z * 16) as usize));
 
@@ -385,20 +388,99 @@ impl Cryptography {
                         self.error = String::new();
                     },
                     Some(KuznechickModes::CFB) => {
+                        let output  = block_cipher_modes::CipherModes::cfb_encrypt(
+                            &block_cipher_modes::CipherModes{keys: self.keys_kuznechik.clone()}, 
+                            self.kuzcnechik_text.text().as_bytes(),
+                            self.mods_param.0 as usize,
+                            self.mods_param.1 as usize,
+                            &self.mods_param.2
+                        );
 
+                        match rfd::FileDialog::new()
+                            .set_title(" Сохранение файла с зашифрованными данными...")
+                            .set_file_name("CFB")
+                            .save_file()
+                            {
+                                Some(path) => fs::write(path, output).unwrap(),
+                                None => {
+                                    self.error = "Не удалось сохранить файл с данными".to_string();
+                                    return Task::none();
+                                }
+                            }
+                        
+                        self.error = String::new();
                     },
                     Some(KuznechickModes::CTR) => {
+                        let mut iv:[u8; 8] = [0; 8];
+                        iv.clone_from_slice(&self.mods_param.2[0..8]);
 
+                        let output = block_cipher_modes::CipherModes::ctr_crypt(
+                            &block_cipher_modes::CipherModes{keys: self.keys_kuznechik.clone()}, 
+                            self.kuzcnechik_text.text().as_bytes(),
+                            self.mods_param.0 as usize,
+                            &iv
+                        );
+
+                        match rfd::FileDialog::new()
+                            .set_title(" Сохранение файла с зашифрованными данными...")
+                            .set_file_name("CTR")
+                            .save_file()
+                            {
+                                Some(path) => fs::write(path, output).unwrap(),
+                                None => {
+                                    self.error = "Не удалось сохранить файл с данными".to_string();
+                                    return Task::none();
+                                }
+                            }
+                        
+                        self.error = String::new();
                     },
                     Some(KuznechickModes::ECB) => {
+                        let output = block_cipher_modes::CipherModes::ecb_encrypt(
+                            &block_cipher_modes::CipherModes{keys: self.keys_kuznechik.clone()}, 
+                            self.kuzcnechik_text.text().as_bytes()
+                        );
 
+                        let bytes_output: Vec<u8> = output.iter().flatten().copied().collect();
+
+                        match rfd::FileDialog::new()
+                            .set_title(" Сохранение файла с зашифрованными данными...")
+                            .set_file_name("ECB")
+                            .save_file()
+                            {
+                                Some(path) => fs::write(path, bytes_output).unwrap(),
+                                None => {
+                                    self.error = "Не удалось сохранить файл с данными".to_string();
+                                    return Task::none();
+                                }
+                            }
+                        
+                        self.error = String::new();
                     },
                     Some(KuznechickModes::OFB) => {
+                        let output = block_cipher_modes::CipherModes::ofb_crypt(
+                            &block_cipher_modes::CipherModes{keys: self.keys_kuznechik.clone()}, 
+                            self.kuzcnechik_text.text().as_bytes(),
+                            self.mods_param.0 as usize,
+                            self.mods_param.1 as usize,
+                            &self.mods_param.2
+                        );
 
+                        match rfd::FileDialog::new()
+                            .set_title(" Сохранение файла с зашифрованными данными...")
+                            .set_file_name("OFB")
+                            .save_file()
+                            {
+                                Some(path) => fs::write(path, output).unwrap(),
+                                None => {
+                                    self.error = "Не удалось сохранить файл с данными".to_string();
+                                    return Task::none();
+                                }
+                            }
+                        
+                        self.error = String::new();
                     },
-                    Some(KuznechickModes::MAC) => {
-
-                    },
+                    //Some(KuznechickModes::MAC) => {},
                     None => {
                         self.error = "Ни один из режимов работы Кузнечика не был выбран".to_string();
                         return Task::none();
@@ -446,20 +528,98 @@ impl Cryptography {
                         self.error = String::new();
                     },
                     Some(KuznechickModes::CFB) => {
+                        let output = match block_cipher_modes::CipherModes::cfb_decrypt(
+                            &block_cipher_modes::CipherModes{keys: self.keys_kuznechik.clone()}, 
+                            &data,
+                            self.mods_param.0 as usize,
+                            self.mods_param.1 as usize,
+                            &self.mods_param.2
+                        )
+                        {
+                            Ok(res) => res,
+                            Err(msg) => {
+                                self.error = msg;
+                                return Task::none();
+                            }
+                        };
 
+                        let decrypted_data = match from_utf8(&output) {
+                            Ok(data) => data,
+                            Err(_) => {
+                                self.error = "Некорректные ключи для данного файла".to_string();
+                                return Task::none();
+                            }
+                        };
+
+                        self.kuzcnechik_text = text_editor::Content::with_text(decrypted_data);
+                        self.error = String::new();
                     },
                     Some(KuznechickModes::CTR) => {
+                        let mut iv:[u8; 8] = [0; 8];
+                        iv.clone_from_slice(&self.mods_param.2[0..8]);
 
+                        let output = block_cipher_modes::CipherModes::ctr_crypt(
+                            &block_cipher_modes::CipherModes{keys: self.keys_kuznechik.clone()}, 
+                            &data,
+                            self.mods_param.0 as usize,
+                            &iv
+                        );
+
+                        let decrypted_data = match from_utf8(&output) {
+                            Ok(data) => data,
+                            Err(_) => {
+                                self.error = "Некорректные ключи для данного файла".to_string();
+                                return Task::none();
+                            }
+                        };
+
+                        self.kuzcnechik_text = text_editor::Content::with_text(decrypted_data);
+                        self.error = String::new();
                     },
                     Some(KuznechickModes::ECB) => {
+                        let output = match block_cipher_modes::CipherModes::ecb_decrypt(
+                            &block_cipher_modes::CipherModes{keys: self.keys_kuznechik.clone()}, 
+                            &data
+                        ) {
+                            Ok(res) => res,
+                            Err(msg) => {
+                                self.error = msg;
+                                return Task::none();
+                            }
+                        };
 
+                        let decrypted_data = match from_utf8(&output) {
+                            Ok(data) => data,
+                            Err(_) => {
+                                self.error = "Некорректные ключи для данного файла".to_string();
+                                return Task::none();
+                            }
+                        };
+
+                        self.kuzcnechik_text = text_editor::Content::with_text(decrypted_data);
+                        self.error = String::new();
                     },
                     Some(KuznechickModes::OFB) => {
+                        let output = block_cipher_modes::CipherModes::ofb_crypt(
+                            &block_cipher_modes::CipherModes{keys: self.keys_kuznechik.clone()}, 
+                            &data,
+                            self.mods_param.0 as usize,
+                            self.mods_param.1 as usize,
+                            &self.mods_param.2
+                        );
 
-                    },
-                    Some(KuznechickModes::MAC) => {
+                        let decrypted_data = match from_utf8(&output) {
+                            Ok(data) => data,
+                            Err(_) => {
+                                self.error = "Некорректные ключи для данного файла".to_string();
+                                return Task::none();
+                            }
+                        };
 
+                        self.kuzcnechik_text = text_editor::Content::with_text(decrypted_data);
+                        self.error = String::new();
                     },
+                    //Some(KuznechickModes::MAC) => {},
                     None => {
                         self.error = "Ни один из режимов работы Кузнечика не был выбран".to_string();
                         return Task::none();

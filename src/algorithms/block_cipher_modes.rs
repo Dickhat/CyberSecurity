@@ -626,7 +626,7 @@ impl CipherModes {
 
                 // Если message[cur_byte] = 0101 1100 и cur_idx = 3
                 byte_m = message[cur_byte] >> cur_idx; // Зануление младших обработанных битов даст byte = 0000 1011
-                byte_m = byte_m << cur_idx; // Возврат к исходному положению не зануленных бит byte = 0101 1000
+                byte_m = byte_m << cur_idx;            // Возврат к исходному положению не зануленных бит byte = 0101 1000
 
                 // Часть ctr
                 byte_ctr = gamma_u8[cur_byte % 16] >> cur_idx;
@@ -640,22 +640,18 @@ impl CipherModes {
                     cur_idx = 0;
                     cur_byte += 1;
 
-                    c = c | (byte_m ^ byte_ctr); // Суммирование по модулю 2
-                    cipher_text_c.push(c); // Для сдвига регистра R и занесения в сдвинутые биты C
-                    res.push(c); // Помещение результата в массив
+                    c = c | (byte_m ^ byte_ctr);// Суммирование по модулю 2
+                    cipher_text_c.push(c);      // Для сдвига регистра R и занесения в сдвинутые биты C
+                    res.push(c);                // Помещение результата в массив
                     c = 0; // Обнуление результата нового байта
                 }
                 // Если операция выполняется на одном байте
                 else {
                     // Если message[cur_byte] = 0001 1100 и cur_idx = 3 и s = 2
-                    byte_m = byte_m >> cur_idx; // Зануление младших обработанных битов byte = 0000 0011
-                    byte_m = byte_m << cur_idx; // Возврат к исходному положению byte = 0001 1000
                     byte_m = byte_m << (8 - (cur_idx + rem_bits)); // Зануление старших бит, которые обрабатывать не надо, даст byte = 1100 0000
                     byte_m = byte_m >> (8 - (cur_idx + rem_bits)); // Возврат к исходному положению byte = 0001 100
 
                     // Часть ctr
-                    byte_ctr = byte_ctr >> cur_idx;
-                    byte_ctr = byte_ctr << cur_idx;
                     byte_ctr = byte_ctr << (8 - (cur_idx + rem_bits));
                     byte_ctr = byte_ctr >> (8 - (cur_idx + rem_bits));
 
@@ -732,7 +728,7 @@ impl CipherModes {
     /// параметром m = 128*z, где z - целое >= 1, а также IV - инициализирующим вектором длины m,
     /// который для каждого нового сообщения должен формироваться новый. Данный метод используется для
     /// расшифрования шифротекса.
-    pub fn cfb_decrypt(&self, message: &[u8], s: usize, z: usize, iv: &Vec<u8>) -> Vec<u8> {
+    pub fn cfb_decrypt(&self, message: &[u8], s: usize, z: usize, iv: &Vec<u8>) -> Result<Vec<u8>, String> {
         // s - число бит, которые будут шифроваться
         if s < 1 || s > 128 {
             panic!("S must be <= 128");
@@ -810,14 +806,10 @@ impl CipherModes {
                 // Если операция выполняется на одном байте
                 else {
                     // Если message[cur_byte] = 0001 1100 и cur_idx = 3 и s = 2
-                    byte_m = byte_m >> cur_idx; // Зануление младших обработанных битов byte = 0000 0011
-                    byte_m = byte_m << cur_idx; // Возврат к исходному положению byte = 0001 1000
                     byte_m = byte_m << (8 - (cur_idx + rem_bits)); // Зануление старших бит, которые обрабатывать не надо, даст byte = 1100 0000
                     byte_m = byte_m >> (8 - (cur_idx + rem_bits)); // Возврат к исходному положению byte = 0001 100
 
                     // Часть ctr
-                    byte_ctr = byte_ctr >> cur_idx;
-                    byte_ctr = byte_ctr << cur_idx;
                     byte_ctr = byte_ctr << (8 - (cur_idx + rem_bits));
                     byte_ctr = byte_ctr >> (8 - (cur_idx + rem_bits));
 
@@ -888,7 +880,7 @@ impl CipherModes {
             }
         }
 
-        res
+        Ok(res)
     }
 }
 
@@ -1340,7 +1332,7 @@ mod tests {
         assert_eq!(res_encrypt[32..48], c3);
         assert_eq!(res_encrypt[48..], c4);
 
-        let res_decrypt = kuz_ecb.cfb_decrypt(&res_encrypt, 128, 2, &iv);
+        let res_decrypt = kuz_ecb.cfb_decrypt(&res_encrypt, 128, 2, &iv).unwrap();
 
         assert_eq!(res_decrypt[0..16], p1);
         assert_eq!(res_decrypt[16..32], p2);
@@ -1356,7 +1348,7 @@ mod tests {
                 let res = kuz_ecb.cfb_encrypt(&p, s, z, &iv);
 
                 // Расшифрование
-                let decrypt_res = kuz_ecb.cfb_decrypt(&res, s, z, &iv);
+                let decrypt_res = kuz_ecb.cfb_decrypt(&res, s, z, &iv).unwrap();
 
                 assert_eq!(decrypt_res, p);
             }
