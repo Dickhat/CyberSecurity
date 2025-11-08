@@ -86,7 +86,7 @@ fn main() -> iced::Result {
             ..Default::default()
         })
         .window(window)
-        .theme(|_s| iced::Theme::CatppuccinMocha)
+        .theme(|_s| iced::Theme::SolarizedLight)
         .run_with(|| (App::new(), iced::Task::none()))
 }
 

@@ -1,9 +1,9 @@
 use iced::{
-    widget::{button, column, container, text, text_input},
-    Task,
+    Length, Task, widget::{button, column, container, text, text_input}
 };
 use postgres::{Client, NoTls};
 use crate::algorithms::{streebog::streebog, to_hex};
+use crate::gui::button_style;
 
 #[derive(Debug, Clone)]
 pub struct Credentials {
@@ -11,6 +11,7 @@ pub struct Credentials {
     password: String,
     pub access: bool,
     info_message: String,
+    error_message: String
 }
 
 #[derive(Debug, Clone)]
@@ -30,7 +31,8 @@ impl Credentials {
             login: "".to_string(),
             password: "".to_string(),
             access: false,
-            info_message: "".to_string(),
+            info_message: String::new(),
+            error_message: String::new()
         }
     }
 
@@ -69,22 +71,28 @@ impl Credentials {
                         "Пользователь успешно зарегистрирован. Авторизуйте по вашим данным."
                             .to_string();
                 } else {
-                    self.info_message =
-                        "Пользователь не зарегистрирован. Попробуйте снова".to_string();
+                    self.info_message = String::new();
+                    self.error_message = "Пользователь не зарегистрирован. Попробуйте снова".to_string();
+                    return iced::Task::none();
                 }
             }
             Message::Authorize(access) => {
                 self.access = access;
 
                 if !access {
-                    self.info_message = "Некорректные данные".to_string();
+                    self.error_message = "Некорректные данные".to_string();
+                    self.info_message = String::new();
+                    return iced::Task::none();
                 }
             }
             Message::Error(err_message) => {
-                self.info_message = err_message;
+                self.info_message = String::new();
+                self.error_message = err_message;
+                return iced::Task::none();
             }
         }
 
+        self.error_message = String::new();
         iced::Task::none()
     }
 
@@ -92,49 +100,57 @@ impl Credentials {
     pub fn view(&self) -> iced::Element<'_, Message> {
         let greet_form = column![
             text(self.info_message.clone()),
-            text_input("Login", &self.login)
+            text(self.error_message.clone())
+                .color(iced::Color::from_rgb(1.0, 0.0, 0.0)),
+            text_input("Логин", &self.login)
                 .on_input({
                     move |login| {
                         Message::Filling(Credentials {
                             login,
                             password: self.password.clone(),
                             access: false,
-                            info_message: "".to_string(),
+                            info_message: String::new(),
+                            error_message: String::new()
                         })
                     }
                 })
                 .width(500),
-            text_input("Password", &self.password)
+            text_input("Пароль", &self.password)
                 .on_input({
                     move |password| {
                         Message::Filling(Credentials {
                             login: self.login.clone(),
                             password,
                             access: false,
-                            info_message: "".to_string(),
+                            info_message: String::new(),
+                            error_message: String::new()
                         })
                     }
                 })
                 .width(500),
-            button("Log in")
+            button("Авторизоваться")
                 .width(300)
-                .padding([10, 120])
+                .style(|_theme, status| button_style(status))
+                .padding([10, 70])
                 .on_press(Message::Login(self.clone())),
-            button("Register")
+            button("Зарегистрироваться")
                 .width(300)
-                .padding([10, 120])
+                .style(|_theme, status| button_style(status))
+                .padding([10, 70])
                 .on_press(Message::Registration(self.clone())),
-            button("Anon access")
+            button("Анонимный доступ")
+                .style(|_theme, status| button_style(status))
                 .width(300)
-                .padding([10, 100])
+                .padding([10, 70])
                 .on_press(Message::AnonAccess)
         ]
-        .align_x(iced::Alignment::Center);
+            .align_x(iced::Alignment::Center);
 
         container(greet_form)
-            .padding(100)
-            .center(1600)
-            .style(container::rounded_box)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill)
             .into()
     }
 }
