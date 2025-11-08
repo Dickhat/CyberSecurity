@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["GUI"],"mod":["cryptography","greet_screen"]};
+window.SIDEBAR_ITEMS = {"enum":["GUI"],"fn":["button_style","text_editor_style"],"mod":["cryptography","greet_screen"]};
