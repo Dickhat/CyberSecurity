@@ -29,12 +29,12 @@ pub fn text_editor_style() -> iced::widget::text_editor::Style
     iced::widget::text_editor::Style { 
         background: iced::Background::Color(iced::Color::TRANSPARENT), 
         border: iced::Border {
-            color: iced::Color::from_rgba8(160, 160, 160, 1.0),
+            color: iced::Color::BLACK,
             width: 1.0,
             radius: iced::border::Radius::default()
         }, 
         icon: iced::Color::TRANSPARENT, 
-        placeholder: iced::Color::from_rgba8(160, 160, 160, 1.0), 
+        placeholder: iced::Color::BLACK, 
         value: iced::Color::BLACK, 
         selection: iced::Color::TRANSPARENT
     }                             

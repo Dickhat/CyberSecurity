@@ -86,7 +86,7 @@ pub enum Message {
     PickFile
 }
 
-const CUSTOM_FONT: iced::Font = iced::Font::with_name("fontello");
+const CUSTOM_FONT: iced::Font = iced::Font::with_name("crypto-icons");
 
 impl Cryptography {
     pub fn new(login: String) -> Self
@@ -224,12 +224,14 @@ impl Cryptography {
         match message {
             Message::Select => {
                 self.state = Message::Select;
+                self.error = String::new();
             },
             Message::RSA => {
 
             },
             Message::Streebog => {
                 self.state = Message::Streebog;
+                self.error = String::new();
             },
             Message::StreebogCompute => {
                 let text = self.streebog_text.text();
@@ -250,6 +252,7 @@ impl Cryptography {
             }
             Message::Kuznechick => {
                 self.state = Message::Kuznechick;
+                self.error = String::new();
             },
             Message::KuznechickChangeMode(mode) => {
                 self.current_mode = Some(mode);
@@ -270,6 +273,7 @@ impl Cryptography {
             },
             Message::KuznechickKeys => {
                 self.state = Message::KuznechickKeys;
+                self.error = String::new();
             },
             Message::KuznechickKeysLoad => {
                 let path = match rfd::FileDialog::new()
@@ -688,7 +692,7 @@ impl Cryptography {
                     column![
                         row![
                             tooltip(
-                                button(text('\u{E80E}')
+                                button(text('\u{E83D}')
                                     .font(CUSTOM_FONT))
                                     .on_press(Message::Kuznechick),
                                 text("Возврат к выбору опций алгоритма Кузнечик"),
@@ -706,7 +710,7 @@ impl Cryptography {
                 column![
                     row![
                         tooltip(
-                            button(text('\u{E80E}')
+                            button(text('\u{E83D}')
                                 .font(CUSTOM_FONT))
                                 .on_press(Message::Kuznechick),
                             text("Возврат к выбору опций алгоритма Кузнечик"),
@@ -724,7 +728,7 @@ impl Cryptography {
                     column![
                         row![
                             tooltip(
-                                button(text('\u{E80E}')
+                                button(text('\u{E83D}')
                                     .font(CUSTOM_FONT))
                                     .on_press(Message::Select),
                                 text("Возврат к выбору алгоритмов"),
@@ -788,26 +792,30 @@ impl Cryptography {
                             column![      
                                 row![
                                     tooltip(
-                                        button(text('\u{E812}')
-                                            .font(CUSTOM_FONT))
+                                        button(row![
+                                             text("Загрузить из "),
+                                             text("\u{E812}").font(CUSTOM_FONT)
+                                            ])
                                             .style(|_theme, status| button_style(status))
                                             .on_press(Message::PickFile),
                                         text("Выбор файла для хэширования"),
                                         tooltip::Position::Top
                                     ),
                                     tooltip(
-                                        button(text('\u{E800}')
-                                            .font(CUSTOM_FONT))
+                                        button(row![
+                                                text("Копировать "),
+                                                text("\u{F15B}").font(CUSTOM_FONT)
+                                            ])
                                             .style(|_theme, status| button_style(status))
                                             .on_press(Message::CopyClipboard(self.streebog_text.text())),
                                         text(" Скопировать текст"),
                                         tooltip::Position::Top
                                     )
-                                ],           
-                                text("Исходный текст"),
+                                ].spacing(10),           
                                 text_editor(&self.streebog_text)
                                     .on_action(Message::InputTextEditor)
-                                    .placeholder("Исходный текст, который необходимо захэшировать")
+                                    .placeholder("Введите или загрузите файл с исходным текстом, который необходимо захэшировать")
+                                    .style(|_theme, _style| text_editor_style())
                                     .wrapping(text::Wrapping::WordOrGlyph)
                                     .height(1000)
                                     .padding(10)
@@ -821,18 +829,19 @@ impl Cryptography {
                             column![
                                 row![
                                     tooltip(
-                                        button(text('\u{E800}')
-                                            .font(CUSTOM_FONT))
+                                        button(row![
+                                                text("Копировать "),
+                                                text("\u{F15B}").font(CUSTOM_FONT)
+                                            ])
                                             .style(|_theme, status| button_style(status))
                                             .on_press(Message::CopyClipboard(self.streebog_hash.text())),
                                         text(" Скопировать Хэш"),
                                         tooltip::Position::Right
                                     )
                                 ],
-                                text("Результат Хэширования"),
                                 text_editor( &self.streebog_hash)
-                                    .placeholder("Здесь будет отображаться результат хэширования")
                                     .wrapping(text::Wrapping::WordOrGlyph)
+                                    .placeholder("В этом поле будет отображаться результат хэширования")
                                     .style(|_theme, _style| text_editor_style())
                                     .height(1000)
                                     .padding(10) 
@@ -881,24 +890,33 @@ impl Cryptography {
                             column![      
                                 row![
                                     tooltip(
-                                        button(text('\u{E812}')
-                                            .font(CUSTOM_FONT))
+                                        button(row![
+                                            text("Загрузить из "),
+                                            text('\u{E812}')
+                                                .font(CUSTOM_FONT)
+                                        ])
                                             .style(|_theme, status| button_style(status))
                                             .on_press(Message::KuznechickKeysLoad),
                                         text("Выбор файла для загрузки существующих ключей"),
                                         tooltip::Position::Top
                                     ),
                                     tooltip(
-                                        button(text('\u{E800}')
-                                            .font(CUSTOM_FONT))
+                                        button(row![
+                                            text("Копировать "),
+                                            text('\u{F15B}')
+                                                .font(CUSTOM_FONT)
+                                        ])
                                             .style(|_theme, status| button_style(status))
                                             .on_press(Message::CopyClipboard(self.keys_kuznechik_text.text())),
                                         text(" Скопировать ключи в буфер обмена"),
                                         tooltip::Position::Top
                                     ),
                                     tooltip(
-                                        button(text('\u{E813}')
-                                            .font(CUSTOM_FONT))
+                                        button(row![
+                                            text("Сохранить в "),
+                                            text('\u{E813}')
+                                                .font(CUSTOM_FONT)
+                                        ])
                                             .style(|_theme, status| button_style(status))
                                             .on_press(Message::KuznechickKeysSave),
                                         text("Сохранить ключи в файл"), 
@@ -907,10 +925,9 @@ impl Cryptography {
                                     button("Сгенерировать ключи")
                                         .style(|_theme, status| button_style(status))
                                         .on_press(Message::KuznechickKeysGenerate)
-                                ],
-                                text("Криптографические ключи"),
+                                ].spacing(10),
                                 text_editor(&self.keys_kuznechik_text)
-                                    .placeholder("Криптографические ключи для Кузнечика")
+                                    .placeholder("Здесь будут отображаться криптографические ключи для Кузнечика")
                                     .style(|_theme, _style| text_editor_style())
                                     .wrapping(text::Wrapping::WordOrGlyph)
                                     .height(1000)
@@ -938,32 +955,42 @@ impl Cryptography {
                             column![      
                                 row![
                                     tooltip(
-                                        button(text('\u{E812}')
-                                            .font(CUSTOM_FONT))
+                                        button(row![
+                                            text("Загрузить из "),
+                                            text('\u{E812}')
+                                                .font(CUSTOM_FONT)
+                                        ])
                                             .style(|_theme, status| button_style(status))
                                             .on_press(Message::PickFile),
                                         text("Выбор файла для шифрования"),
                                         tooltip::Position::Top
                                     ),
                                     tooltip(
-                                        button(text('\u{E800}')
-                                            .font(CUSTOM_FONT))
+                                        button(row![
+                                            text("Скопировать "),
+                                            text('\u{F15B}')
+                                                .font(CUSTOM_FONT)
+                                        ])
                                             .style(|_theme, status| button_style(status))
                                             .on_press(Message::CopyClipboard(self.kuzcnechik_text.text())),
                                         text(" Скопировать текст в буфер обмена"),
                                         tooltip::Position::Top
                                     ),
                                     tooltip(
-                                        button(text('\u{E813}')
-                                            .font(CUSTOM_FONT))
+                                        button(row![
+                                            text("Сохранить в "),
+                                            text('\u{E813}')
+                                                .font(CUSTOM_FONT)
+                                        ])
                                             .style(|_theme, status| button_style(status))
                                             .on_press(Message::KuznechickSaveFile(self.kuzcnechik_text.text())),
                                         text("Сохранить текст в файл"), 
                                         tooltip::Position::Top
                                     )
-                                ],
+                                ].spacing(10),
                                 text_editor(&self.kuzcnechik_text)
-                                    .placeholder("Здесь отображается текст, загруженный или написанный вами для шифрования, либо расшифрованный алгоритмом Кузнечик")
+                                    .placeholder("Здесь будет отображаться текст, загруженный из файла или написанный вами, для шифрования алгоритмом Кузнечик")
+                                    .style(|_theme, _style| text_editor_style())
                                     .wrapping(text::Wrapping::WordOrGlyph)
                                     .on_action(Message::InputTextEditor)
                                     .height(1000)

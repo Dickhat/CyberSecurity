@@ -415,8 +415,8 @@ impl RsaDataU32768 {
         // RsaData::bpn_check(p);
         // RsaData::bpn_check(q);
 
-        p = crypto_primes::par_generate_prime(16384, 8); //crypto_primes::generate_prime(16384);
-        q = crypto_primes::par_generate_prime(16384, 8); //crypto_primes::generate_prime(16384);
+        p = crypto_primes::par_generate_prime(16384, 4); //crypto_primes::generate_prime(16384);
+        q = crypto_primes::par_generate_prime(16384, 4); //crypto_primes::generate_prime(16384);
                                                          // println!("p={p:?} \nq={q:?}\n");
 
         (p, q)

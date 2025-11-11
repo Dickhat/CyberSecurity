@@ -66,7 +66,8 @@ impl App
     }
 }
 
-fn main() -> iced::Result {
+fn main() -> iced::Result 
+{
     const ICON_BYTES: &[u8] = include_bytes!("gui/assets/papich3.ico");
     let icon = window::icon::from_file_data(ICON_BYTES, None).unwrap();
 
@@ -82,7 +83,7 @@ fn main() -> iced::Result {
     // run the app from main function
     iced::application("Greetings", App::update, App::view)
         .settings(Settings {
-            fonts: vec![include_bytes!("gui/assets/fontello.ttf").as_slice().into()],
+            fonts: vec![include_bytes!("gui/assets/crypto-icons.ttf").as_slice().into()],
             ..Default::default()
         })
         .window(window)
