@@ -3,6 +3,7 @@ pub mod cryptography;
 
 use greet_screen::Credentials;
 use cryptography::Cryptography;
+use iced::{Background, Border, Color, border::Radius};
 
 pub enum GUI 
 {
@@ -13,7 +14,7 @@ pub enum GUI
 pub fn button_style(status: iced::widget::button::Status) -> iced::widget::button::Style {
     let background = match status {
         iced::widget::button::Status::Hovered => iced::Color::from_rgb8(102, 178, 255),
-        _ => iced::Color::from_rgb8(153, 204, 255),
+        _ => iced::Color::from_rgb8(204, 204, 255)//iced::Color::from_rgb8(153, 204, 255),
     };
 
     iced::widget::button::Style {
@@ -21,6 +22,22 @@ pub fn button_style(status: iced::widget::button::Status) -> iced::widget::butto
         text_color: iced::Color::BLACK,
         border: iced::Border::default(),
         shadow: iced::Shadow::default(),
+    }
+}
+
+pub fn text_input_style() -> iced::widget::text_input::Style
+{
+    iced::widget::text_input::Style {
+        background: Background::Color(Color::TRANSPARENT),
+        border: Border {
+            color: Color::BLACK,
+            width: 1.0,
+            radius: Radius::default()
+        },
+        icon: Color::BLACK,
+        placeholder: Color::BLACK,
+        value: Color::BLACK,
+        selection:iced::Color::from_rgb8(102, 102, 255)
     }
 }
 

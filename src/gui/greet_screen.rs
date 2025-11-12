@@ -3,7 +3,7 @@ use iced::{
 };
 use postgres::{Client, NoTls};
 use crate::algorithms::{streebog::streebog, to_hex};
-use crate::gui::button_style;
+use crate::gui::{button_style, text_input_style};
 
 #[derive(Debug, Clone)]
 pub struct Credentials {
@@ -99,52 +99,61 @@ impl Credentials {
     // Обновляет UI
     pub fn view(&self) -> iced::Element<'_, Message> {
         let greet_form = column![
-            text(self.info_message.clone()),
-            text(self.error_message.clone())
-                .color(iced::Color::from_rgb(1.0, 0.0, 0.0)),
-            text_input("Логин", &self.login)
-                .on_input({
-                    move |login| {
-                        Message::Filling(Credentials {
-                            login,
-                            password: self.password.clone(),
-                            access: false,
-                            info_message: String::new(),
-                            error_message: String::new()
+                column![
+                    text("CyberSecure")
+                        .size(36)
+                ].width(500)
+                 .padding([10, 30])
+                 .align_x(iced::Alignment::Center),
+                column![
+                    text(self.info_message.clone()),
+                    text(self.error_message.clone())
+                        .color(iced::Color::from_rgb(1.0, 0.0, 0.0)),
+                    text_input("Логин", &self.login)
+                        .on_input({
+                            move |login| {
+                                Message::Filling(Credentials {
+                                    login,
+                                    password: self.password.clone(),
+                                    access: false,
+                                    info_message: String::new(),
+                                    error_message: String::new()
+                                })
+                            }
                         })
-                    }
-                })
-                .width(500),
-            text_input("Пароль", &self.password)
-                .on_input({
-                    move |password| {
-                        Message::Filling(Credentials {
-                            login: self.login.clone(),
-                            password,
-                            access: false,
-                            info_message: String::new(),
-                            error_message: String::new()
+                        .style(|_theme, _status| text_input_style())
+                        .width(500),
+                    text_input("Пароль", &self.password)
+                        .on_input({
+                            move |password| {
+                                Message::Filling(Credentials {
+                                    login: self.login.clone(),
+                                    password,
+                                    access: false,
+                                    info_message: String::new(),
+                                    error_message: String::new()
+                                })
+                            }
                         })
-                    }
-                })
-                .width(500),
-            button("Авторизоваться")
-                .width(300)
-                .style(|_theme, status| button_style(status))
-                .padding([10, 70])
-                .on_press(Message::Login(self.clone())),
-            button("Зарегистрироваться")
-                .width(300)
-                .style(|_theme, status| button_style(status))
-                .padding([10, 70])
-                .on_press(Message::Registration(self.clone())),
-            button("Анонимный доступ")
-                .style(|_theme, status| button_style(status))
-                .width(300)
-                .padding([10, 70])
-                .on_press(Message::AnonAccess)
-        ]
-            .align_x(iced::Alignment::Center);
+                        .style(|_theme, _status| text_input_style())
+                        .width(500),
+                    button("Авторизоваться")
+                        .width(300)
+                        .style(|_theme, status| button_style(status))
+                        .padding([10, 70])
+                        .on_press(Message::Login(self.clone())),
+                    button("Зарегистрироваться")
+                        .width(300)
+                        .style(|_theme, status| button_style(status))
+                        .padding([10, 70])
+                        .on_press(Message::Registration(self.clone())),
+                    button("Анонимный доступ")
+                        .style(|_theme, status| button_style(status))
+                        .width(300)
+                        .padding([10, 70])
+                        .on_press(Message::AnonAccess)
+                ].spacing(15).align_x(iced::Alignment::Center)
+            ].spacing(15);
 
         container(greet_form)
             .width(Length::Fill)
