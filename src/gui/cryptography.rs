@@ -256,6 +256,7 @@ impl Cryptography {
             },
             Message::KuznechickChangeMode(mode) => {
                 self.current_mode = Some(mode);
+                self.error = String::new();
             },
             Message::KuznechickSaveFile(text) => {
                 match rfd::FileDialog::new()
@@ -640,6 +641,7 @@ impl Cryptography {
                 }
             },
             Message::CopyClipboard(content) =>{
+                self.error = String::new();
                 return clipboard::write(content).map(|_: ()| Message::CurrentState);
             },
             Message::PickFile => {
@@ -897,6 +899,8 @@ impl Cryptography {
                             .size(24)
                             .width(Length::Fill)
                             .align_x(iced::alignment::Horizontal::Center));
+
+                column = column.push(text(""));
 
                 if !self.error.is_empty()
                 {
