@@ -138,18 +138,18 @@ impl Credentials {
                         .style(|_theme, _status| text_input_style())
                         .width(500),
                     button("Авторизоваться")
-                        .width(300)
+                        .width(320)
                         .style(|_theme, status| button_style(status))
                         .padding([10, 70])
                         .on_press(Message::Login(self.clone())),
                     button("Зарегистрироваться")
-                        .width(300)
+                        .width(320)
                         .style(|_theme, status| button_style(status))
                         .padding([10, 70])
                         .on_press(Message::Registration(self.clone())),
                     button("Анонимный доступ")
                         .style(|_theme, status| button_style(status))
-                        .width(300)
+                        .width(320)
                         .padding([10, 70])
                         .on_press(Message::AnonAccess)
                 ].spacing(15).align_x(iced::Alignment::Center)

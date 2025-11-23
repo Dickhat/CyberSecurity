@@ -10,13 +10,20 @@ use crate::algorithms::{self, to_hex, hex_to_bytes};
 use crate::algorithms::streebog::streebog_string;
 use crate::algorithms::kuznechik::Kuznechik;
 use crate::algorithms::block_cipher_modes;
-use crate::gui::{button_style, text_editor_style};
+use crate::gui::{button_style, backward_button_style, text_editor_style};
 
 pub struct Cryptography {
     // General data
     login: String,
     state: Message,
-    error: String,
+
+    // Информация по завершению операций
+    topbar_info: String,    
+    compute_info: String,
+
+    // Информация об ошибках
+    topbar_error: String,   // Ошибка, появляющаяся сверху у функциональных кнопок
+    compute_error: String,  // Ошибка, появляющаяся при некорректной работе алгоритма
 
     // Streebog
     streebog_text: text_editor::Content,
@@ -95,7 +102,10 @@ impl Cryptography {
         {
             login, 
             state: Message::Select,
-            error: String::new(),
+            topbar_info: String::new(),
+            compute_info: String::new(),
+            topbar_error: String::new(),
+            compute_error: String::new(),
 
             streebog_text: text_editor::Content::new(), 
             streebog_hash: text_editor::Content::new(),
@@ -114,6 +124,15 @@ impl Cryptography {
             kuzcnechik_text: text_editor::Content::new(),
             keys_kuznechik_text: text_editor::Content::new()
         }
+    }
+
+    // Сбрасывает все уведомления об ошибках и результатах операций 
+    fn info_error_msg_reset(&mut self)
+    {
+        self.topbar_info = String::new();
+        self.compute_info = String::new();
+        self.topbar_error = String::new();
+        self.compute_error = String::new();
     }
 
     // Перевод ключей в строку для отображения в GUI
@@ -224,66 +243,68 @@ impl Cryptography {
         match message {
             Message::Select => {
                 self.state = Message::Select;
-                self.error = String::new();
+                self.info_error_msg_reset();
             },
             Message::RSA => {
 
             },
             Message::Streebog => {
-                self.state = Message::Streebog;
-                self.error = String::new();
+                self.state = Message::Streebog; 
+                self.info_error_msg_reset();
             },
             Message::StreebogCompute => {
                 let text = self.streebog_text.text();
-                
+                self.info_error_msg_reset();
+
                 if !text.is_empty() && text != "\n"
                 {
                     match streebog_string(text, 256) 
                     {
                         Ok(res) => self.streebog_hash = text_editor::Content::with_text(&res),
-                        Err(message) => {
-                            self.error = message;
-                            return Task::none();
-                        }
-                    }
+                        Err(message) => self.compute_error = message
+                    };
                 }
-
-                self.error = String::new();
             }
             Message::Kuznechick => {
                 self.state = Message::Kuznechick;
-                self.error = String::new();
+                self.info_error_msg_reset();
             },
             Message::KuznechickChangeMode(mode) => {
                 self.current_mode = Some(mode);
-                self.error = String::new();
+                self.info_error_msg_reset();
             },
             Message::KuznechickSaveFile(text) => {
+                self.info_error_msg_reset();
+                
                 match rfd::FileDialog::new()
                     .set_title(" Сохранение файла с текстом...")
                     .save_file()
                     {
-                        Some(path) => fs::write(path, text).unwrap(),
+                        Some(path) => {
+                            match fs::write(&path, text) {
+                                Ok(_) => self.topbar_info = format!("Результат записан в {}", path.display()),
+                                Err(_) => self.topbar_error = "Не удалось сохранить файл текста".to_string(),
+                            };
+                        },
                         None => {
-                            self.error = "Не удалось сохранить файл текста".to_string();
-                            return Task::none();
+                            self.topbar_error = "Не удалось сохранить файл текста".to_string();
                         }
-                    }
-                
-                self.error = String::new();
+                };
             },
             Message::KuznechickKeys => {
                 self.state = Message::KuznechickKeys;
-                self.error = String::new();
+                self.info_error_msg_reset();
             },
             Message::KuznechickKeysLoad => {
+                self.info_error_msg_reset();
+
                 let path = match rfd::FileDialog::new()
                     .set_title(" Выберите файл с ключами для алгоритма Кузнечик...")
                     .pick_file()
                     {
                         Some(path_buf) => path_buf,
                         None => {
-                            self.error = "Некорректный файл с ключами".to_string();
+                            self.topbar_error = "Некорректный файл с ключами".to_string();
                             return Task::none();
                         }
                     };
@@ -294,8 +315,8 @@ impl Cryptography {
                         self.keys_kuznechik = Kuznechik{keys: (params.0, params.1)};
                         self.mods_param = (params.2, params.3, params.4)
                     },
-                    Err(error) => {
-                        self.error = error;
+                    Err(topbar_error) => {
+                        self.topbar_error = topbar_error;
                         return Task::none();
                     }
                 };
@@ -304,39 +325,33 @@ impl Cryptography {
                 match self.keys_to_string() {
                     Ok(res) => {
                         self.keys_kuznechik_text = text_editor::Content::with_text(&res);
+                        self.topbar_info = format!("Ключи загружены из {}", path.display());
                     },
-                    Err(error) => {
-                        self.error = error;
-                        return Task::none();
-                    }
+                    Err(topbar_error) => self.topbar_error = topbar_error
                 };
-
-                self.error = String::new();
             },
             Message::KuznechickKeysSave => {
+                self.info_error_msg_reset();
+
                 match rfd::FileDialog::new()
                     .set_title(" Сохранение файла с ключами...")
-                    .save_file()
-                    {
-                        Some(path) => 
-                            match self.keys_to_string()
-                            {
-                                Ok(res) => fs::write(path, res).unwrap(),
-                                Err(_) => {
-                                    self.error = "Не удалось сохранить файл с ключами".to_string();
-                                    return Task::none();
+                    .save_file() {
+                        Some(path) => {
+                            match self.keys_to_string() {
+                                Ok(res) => {
+                                    match fs::write(&path, res) {
+                                        Ok(_) => self.topbar_info = format!("Ключи записаны в {}", path.display()),
+                                        Err(_) => self.topbar_error = "Не удалось сохранить ключи в файл".to_string(),
+                                    };
                                 }
-                            }
-                        ,
-                        None => {
-                            self.error = "Не удалось сохранить файл с ключами".to_string();
-                            return Task::none();
-                        }
-                    }
-                
-                self.error = String::new();
+                                Err(_) => self.topbar_error = "Не удалось сохранить файл с ключами".to_string()
+                            };
+                        },
+                        None => self.topbar_error = "Не удалось сохранить файл с ключами".to_string()
+                };
             },
             Message::KuznechickKeysGenerate => {
+                self.info_error_msg_reset();
                 self.keys_kuznechik = Kuznechik { keys: Kuznechik::key_generate() };
 
                 let mut s= rand::random::<u32>() % 128;
@@ -348,23 +363,19 @@ impl Cryptography {
 
                 // Для отображения в GUI
                 match self.keys_to_string() {
-                    Ok(res) => {
-                        self.keys_kuznechik_text = text_editor::Content::with_text(&res);
-                    },
-                    Err(error) => {
-                        self.error = error;
-                        return Task::none();
-                    }
+                    Ok(res) => self.keys_kuznechik_text = text_editor::Content::with_text(&res),
+                    Err(topbar_error) => self.topbar_error = topbar_error
                 };
-
-                self.error = String::new();
             },
             Message::KuznechickEncryption => {
                 self.state = Message::KuznechickEncryption;
+                self.info_error_msg_reset();
             },
             Message::KuznechickEncryptionCompute => {
+                self.info_error_msg_reset();
+
                 if self.keys_kuznechik.keys.0.is_empty() {
-                    self.error = "Ключи не были созданы".to_string();
+                    self.compute_error = "Ключи не были созданы".to_string();
                     return Task::none();
                 }
 
@@ -383,14 +394,14 @@ impl Cryptography {
                             .set_file_name("CBC")
                             .save_file()
                             {
-                                Some(path) => fs::write(path, output_bytes).unwrap(),
-                                None => {
-                                    self.error = "Не удалось сохранить файл с данными".to_string();
-                                    return Task::none();
-                                }
-                            }
-                        
-                        self.error = String::new();
+                                Some(path) => {
+                                    match fs::write(&path, output_bytes) {
+                                        Ok(_) => self.compute_info = format!("Результат записан в {}", path.display()),
+                                        Err(_) => self.compute_error = "Не удалось сохранить файл с зашифрованным текстом".to_string(),
+                                    };
+                                },
+                                None => self.compute_error = "Не удалось сохранить файл с данными".to_string()
+                        };
                     },
                     Some(KuznechickModes::CFB) => {
                         let output  = block_cipher_modes::CipherModes::cfb_encrypt(
@@ -406,14 +417,14 @@ impl Cryptography {
                             .set_file_name("CFB")
                             .save_file()
                             {
-                                Some(path) => fs::write(path, output).unwrap(),
-                                None => {
-                                    self.error = "Не удалось сохранить файл с данными".to_string();
-                                    return Task::none();
-                                }
-                            }
-                        
-                        self.error = String::new();
+                                Some(path) => {
+                                    match fs::write(&path, output) {
+                                        Ok(_) => self.compute_info = format!("Результат записан в {}", path.display()),
+                                        Err(_) => self.compute_error = "Не удалось сохранить файл с зашифрованным текстом".to_string(),
+                                    };
+                                },
+                                None => self.compute_error = "Не удалось сохранить файл с данными".to_string()
+                        };
                     },
                     Some(KuznechickModes::CTR) => {
                         let mut iv:[u8; 8] = [0; 8];
@@ -431,14 +442,14 @@ impl Cryptography {
                             .set_file_name("CTR")
                             .save_file()
                             {
-                                Some(path) => fs::write(path, output).unwrap(),
-                                None => {
-                                    self.error = "Не удалось сохранить файл с данными".to_string();
-                                    return Task::none();
-                                }
-                            }
-                        
-                        self.error = String::new();
+                                Some(path) => {
+                                    match fs::write(&path, output) {
+                                        Ok(_) => self.compute_info = format!("Результат записан в {}", path.display()),
+                                        Err(_) => self.compute_error = "Не удалось сохранить файл с зашифрованным текстом".to_string(),
+                                    };
+                                },
+                                None => self.compute_error = "Не удалось сохранить файл с данными".to_string()
+                        };
                     },
                     Some(KuznechickModes::ECB) => {
                         let output = block_cipher_modes::CipherModes::ecb_encrypt(
@@ -453,14 +464,14 @@ impl Cryptography {
                             .set_file_name("ECB")
                             .save_file()
                             {
-                                Some(path) => fs::write(path, bytes_output).unwrap(),
-                                None => {
-                                    self.error = "Не удалось сохранить файл с данными".to_string();
-                                    return Task::none();
-                                }
-                            }
-                        
-                        self.error = String::new();
+                                Some(path) => {
+                                    match fs::write(&path, bytes_output) {
+                                        Ok(_) => self.compute_info = format!("Результат записан в {}", path.display()),
+                                        Err(_) => self.compute_error = "Не удалось сохранить файл с зашифрованным текстом".to_string(),
+                                    };
+                                },
+                                None => self.compute_error = "Не удалось сохранить файл с данными".to_string()
+                        };
                     },
                     Some(KuznechickModes::OFB) => {
                         let output = block_cipher_modes::CipherModes::ofb_crypt(
@@ -476,32 +487,33 @@ impl Cryptography {
                             .set_file_name("OFB")
                             .save_file()
                             {
-                                Some(path) => fs::write(path, output).unwrap(),
-                                None => {
-                                    self.error = "Не удалось сохранить файл с данными".to_string();
-                                    return Task::none();
-                                }
-                            }
-                        
-                        self.error = String::new();
+                                Some(path) => {
+                                    match fs::write(&path, output) {
+                                        Ok(_) => self.compute_info = format!("Результат записан в {}", path.display()),
+                                        Err(_) => self.compute_error = "Не удалось сохранить файл с зашифрованным текстом".to_string(),
+                                    };
+                                },
+                                None => self.compute_error = "Не удалось сохранить файл с данными".to_string()
+                        };
                     },
                     //Some(KuznechickModes::MAC) => {},
                     None => {
-                        self.error = "Ни один из режимов работы Кузнечика не был выбран".to_string();
-                        return Task::none();
+                        self.compute_error = "Ни один из режимов работы Кузнечика не был выбран".to_string();
                     }
-                }
+                };
             }
             Message::KuznechickDecryptionCompute => {
+                self.info_error_msg_reset();
+
                 if self.keys_kuznechik.keys.0.is_empty() {
-                    self.error = "Ключи не были созданы".to_string();
+                    self.compute_error = "Ключи не были созданы".to_string();
                     return Task::none();
                 }
 
                 let data = match read_file() {
                     Ok(data) => data,
                     Err(message) => {
-                        self.error = message;
+                        self.topbar_error = message;
                         return Task::none();
                     }
                 };
@@ -512,11 +524,10 @@ impl Cryptography {
                         let output = match block_cipher_modes::CipherModes::ecb_decrypt(
                             &block_cipher_modes::CipherModes{keys: self.keys_kuznechik.clone()}, 
                             &data
-                        )
-                        {
+                        ) {
                             Ok(res) => res,
                             Err(msg) => {
-                                self.error = msg;
+                                self.compute_error = msg;
                                 return Task::none();
                             }
                         };
@@ -524,13 +535,12 @@ impl Cryptography {
                         let decrypted_data = match from_utf8(&output) {
                             Ok(data) => data,
                             Err(_) => {
-                                self.error = "Некорректные ключи для данного файла".to_string();
+                                self.compute_error = "Некорректные ключи для данного файла".to_string();
                                 return Task::none();
                             }
                         };
 
                         self.kuzcnechik_text = text_editor::Content::with_text(decrypted_data);
-                        self.error = String::new();
                     },
                     Some(KuznechickModes::CFB) => {
                         let output = match block_cipher_modes::CipherModes::cfb_decrypt(
@@ -539,11 +549,10 @@ impl Cryptography {
                             self.mods_param.0 as usize,
                             self.mods_param.1 as usize,
                             &self.mods_param.2
-                        )
-                        {
+                        ) {
                             Ok(res) => res,
                             Err(msg) => {
-                                self.error = msg;
+                                self.compute_error = msg;
                                 return Task::none();
                             }
                         };
@@ -551,13 +560,12 @@ impl Cryptography {
                         let decrypted_data = match from_utf8(&output) {
                             Ok(data) => data,
                             Err(_) => {
-                                self.error = "Некорректные ключи для данного файла".to_string();
+                                self.compute_error = "Некорректные ключи для данного файла".to_string();
                                 return Task::none();
                             }
                         };
 
                         self.kuzcnechik_text = text_editor::Content::with_text(decrypted_data);
-                        self.error = String::new();
                     },
                     Some(KuznechickModes::CTR) => {
                         let mut iv:[u8; 8] = [0; 8];
@@ -573,13 +581,12 @@ impl Cryptography {
                         let decrypted_data = match from_utf8(&output) {
                             Ok(data) => data,
                             Err(_) => {
-                                self.error = "Некорректные ключи для данного файла".to_string();
+                                self.compute_error = "Некорректные ключи для данного файла".to_string();
                                 return Task::none();
                             }
                         };
 
                         self.kuzcnechik_text = text_editor::Content::with_text(decrypted_data);
-                        self.error = String::new();
                     },
                     Some(KuznechickModes::ECB) => {
                         let output = match block_cipher_modes::CipherModes::ecb_decrypt(
@@ -588,7 +595,7 @@ impl Cryptography {
                         ) {
                             Ok(res) => res,
                             Err(msg) => {
-                                self.error = msg;
+                                self.compute_error = msg;
                                 return Task::none();
                             }
                         };
@@ -596,13 +603,12 @@ impl Cryptography {
                         let decrypted_data = match from_utf8(&output) {
                             Ok(data) => data,
                             Err(_) => {
-                                self.error = "Некорректные ключи для данного файла".to_string();
+                                self.compute_error = "Некорректные ключи для данного файла".to_string();
                                 return Task::none();
                             }
                         };
 
                         self.kuzcnechik_text = text_editor::Content::with_text(decrypted_data);
-                        self.error = String::new();
                     },
                     Some(KuznechickModes::OFB) => {
                         let output = block_cipher_modes::CipherModes::ofb_crypt(
@@ -616,20 +622,16 @@ impl Cryptography {
                         let decrypted_data = match from_utf8(&output) {
                             Ok(data) => data,
                             Err(_) => {
-                                self.error = "Некорректные ключи для данного файла".to_string();
+                                self.compute_error = "Некорректные ключи для данного файла".to_string();
                                 return Task::none();
                             }
                         };
 
                         self.kuzcnechik_text = text_editor::Content::with_text(decrypted_data);
-                        self.error = String::new();
                     },
                     //Some(KuznechickModes::MAC) => {},
-                    None => {
-                        self.error = "Ни один из режимов работы Кузнечика не был выбран".to_string();
-                        return Task::none();
-                    }
-                }
+                    None => self.compute_error = "Ни один из режимов работы Кузнечика не был выбран".to_string()
+                };
             },
             Message::InputTextEditor(content) => {
                 if let Message::Streebog = self.state
@@ -641,10 +643,12 @@ impl Cryptography {
                 }
             },
             Message::CopyClipboard(content) =>{
-                self.error = String::new();
+                self.info_error_msg_reset();
                 return clipboard::write(content).map(|_: ()| Message::CurrentState);
             },
             Message::PickFile => {
+                self.info_error_msg_reset();
+
                 match read_file() 
                 {
                     Ok(bytes) =>
@@ -652,7 +656,7 @@ impl Cryptography {
                         let text = match from_utf8(&bytes) {
                             Ok(text) => text,
                             Err(_) => {
-                                self.error = "Некорректный файл. Используйте текстовый файл".to_string();
+                                self.topbar_error = "Некорректный файл. Используйте текстовый файл".to_string();
                                 return Task::none();
                             }
                         };
@@ -666,13 +670,8 @@ impl Cryptography {
                             self.streebog_text = text_editor::Content::with_text(&text.to_string());
                         }
                     },
-                    Err(message) => {
-                        self.error = message;
-                        return Task::none();
-                    }
+                    Err(message) => self.topbar_error = message
                 };
-
-                self.error = String::new();
             },
             _ => {}
         }
@@ -696,6 +695,7 @@ impl Cryptography {
                             tooltip(
                                 button(text('\u{E83D}')
                                     .font(CUSTOM_FONT))
+                                    .style(|_theme, status| backward_button_style(status))
                                     .on_press(Message::Kuznechick),
                                 text("Возврат к выбору опций алгоритма Кузнечик"),
                                 tooltip::Position::Bottom
@@ -714,6 +714,7 @@ impl Cryptography {
                         tooltip(
                             button(text('\u{E83D}')
                                 .font(CUSTOM_FONT))
+                                .style(|_theme, status| backward_button_style(status))
                                 .on_press(Message::Kuznechick),
                             text("Возврат к выбору опций алгоритма Кузнечик"),
                             tooltip::Position::Bottom
@@ -732,6 +733,7 @@ impl Cryptography {
                             tooltip(
                                 button(text('\u{E83D}')
                                     .font(CUSTOM_FONT))
+                                    .style(|_theme, status| backward_button_style(status))
                                     .on_press(Message::Select),
                                 text("Возврат к выбору алгоритмов"),
                                 tooltip::Position::Bottom
@@ -802,14 +804,16 @@ impl Cryptography {
                             .width(Length::Fill)
                             .align_x(iced::alignment::Horizontal::Center));
 
-                if !self.error.is_empty()
+                if !self.topbar_error.is_empty()
                 {
                     column = column
                                 .push(
-                                    text("Ошибка: ".to_string() + &self.error.clone())
+                                    text("Ошибка: ".to_string() + &self.topbar_error.clone())
                                         .style(|_theme: &iced::Theme| iced::widget::text::Style {
                                             color: Some(iced::Color::from_rgb(1.0, 0.0, 0.0)), // красный цвет
                                         }));
+                } else if !self.topbar_info.is_empty() {
+                    column = column.push(text(self.topbar_info.clone()));
                 }
 
                 column = column.push(
@@ -902,14 +906,16 @@ impl Cryptography {
 
                 column = column.push(text(""));
 
-                if !self.error.is_empty()
+                if !self.topbar_error.is_empty()
                 {
                     column = column
                                 .push(
-                                    text("Ошибка: ".to_string() + &self.error.clone())
+                                    text("Ошибка: ".to_string() + &self.topbar_error.clone())
                                         .style(|_theme: &iced::Theme| iced::widget::text::Style {
                                             color: Some(iced::Color::from_rgb(1.0, 0.0, 0.0)), // красный цвет
                                         }));
+                } else if !self.topbar_info.is_empty() {
+                    column = column.push(text(self.topbar_info.clone()));
                 }
 
                 column = column.push(
@@ -967,14 +973,16 @@ impl Cryptography {
                             .width(Length::Fill)
                             .align_x(iced::alignment::Horizontal::Center));
 
-                if !self.error.is_empty()
+                if !self.topbar_error.is_empty()
                 {
                     column = column
                                 .push(
-                                    text("Ошибка: ".to_string() + &self.error.clone())
+                                    text("Ошибка: ".to_string() + &self.topbar_error.clone())
                                         .style(|_theme: &iced::Theme| iced::widget::text::Style {
                                             color: Some(iced::Color::from_rgb(1.0, 0.0, 0.0)), // красный цвет
                                         }));
+                } else if !self.topbar_info.is_empty() {
+                    column = column.push(text(self.topbar_info.clone()));
                 }
 
                 column = column.push(
@@ -1026,6 +1034,11 @@ impl Cryptography {
                             center(
                                 row![
                                     column![
+                                        text(&self.compute_error)
+                                        .style(|_theme: &iced::Theme| iced::widget::text::Style {
+                                            color: Some(iced::Color::from_rgb(1.0, 0.0, 0.0)), // красный цвет
+                                        }),
+                                        text(&self.compute_info),
                                         combo_box(
                                             &self.kuznechik_modes, 
                                             "Выберите режим работы...", 
@@ -1042,7 +1055,8 @@ impl Cryptography {
                                             .style(|_theme, status| button_style(status))
                                             .padding(15)
                                             .width(Length::Fixed(250.0))
-                                    ]
+                                    ].spacing(15)
+                                     .align_x(iced::Alignment::Center)
                                 ]
                             ),
                             // column![      

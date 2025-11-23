@@ -25,6 +25,20 @@ pub fn button_style(status: iced::widget::button::Status) -> iced::widget::butto
     }
 }
 
+pub fn backward_button_style(status: iced::widget::button::Status) -> iced::widget::button::Style {
+    let background = match status {
+        iced::widget::button::Status::Hovered => iced::Color::from_rgb8(53, 212, 160),
+        _ => iced::Color::from_rgb8(96, 212, 174)//iced::Color::from_rgb8(153, 204, 255),
+    };
+
+    iced::widget::button::Style {
+        background: Some(iced::Background::Color(background)),
+        text_color: iced::Color::BLACK,
+        border: iced::Border::default(),
+        shadow: iced::Shadow::default(),
+    }
+}
+
 pub fn text_input_style() -> iced::widget::text_input::Style
 {
     iced::widget::text_input::Style {

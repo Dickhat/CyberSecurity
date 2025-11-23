@@ -49,10 +49,10 @@ impl App
                 if let GUI::Cryptography(crypt) = &mut self.screen
                 {
                     let task = crypt.update(message);
-                    return  task.map(Message::Cryptography);
+                    return task.map(Message::Cryptography);
                 }
             }
-        }
+        };
 
         iced::Task::none()
     }
