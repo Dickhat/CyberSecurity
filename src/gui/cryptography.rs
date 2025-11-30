@@ -51,11 +51,11 @@ pub enum KuznechickModes {
 impl std::fmt::Display for KuznechickModes {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            KuznechickModes::ECB => "ECB",
-            KuznechickModes::CTR => "CTR",
-            KuznechickModes::OFB => "OFB",
-            KuznechickModes::CBC => "CBC",
-            KuznechickModes::CFB => "CFB"
+            KuznechickModes::ECB => "ECB (Режим простой замены)",
+            KuznechickModes::CTR => "CTR (Режим гаммирования)",
+            KuznechickModes::OFB => "OFB (Режим гаммирования с обратной связью по выходу)",
+            KuznechickModes::CBC => "CBC (Режим простой замены с зацеплением)",
+            KuznechickModes::CFB => "CFB (Режим гаммирования с обратной связью по шифротексту)" 
             //KuznechickModes::MAC => "MAC",
         })
     }
@@ -799,10 +799,18 @@ impl Cryptography {
                 column = column.spacing(5);
             },
             Message::Streebog => {
-                column = column.push(text("Хэширование алгоритмом Стрибог (ГОСТ Р 34.11-2018)")
+                column = column.push(
+                    column![
+                        text("Хэширование алгоритмом Стрибог (ГОСТ Р 34.11-2018)")
                             .size(24)
                             .width(Length::Fill)
-                            .align_x(iced::alignment::Horizontal::Center));
+                            .align_x(iced::alignment::Horizontal::Center),
+                        text("")
+                            .size(48)
+                            .width(Length::Fill)
+                            .align_x(iced::alignment::Horizontal::Center)
+                    ]
+                );
 
                 if !self.topbar_error.is_empty()
                 {
@@ -850,7 +858,13 @@ impl Cryptography {
                                     .padding(10)
                             ],
                             center(column![
-                                button("Хэшировать")
+                                button(column![
+                                        text("Хэшировать"), 
+                                        text("\u{E830}")
+                                            .font(CUSTOM_FONT)
+                                            .size(30)
+                                            ].align_x(iced::alignment::Horizontal::Center)
+                                    )
                                     .on_press(Message::StreebogCompute)
                                     .style(|_theme, status| button_style(status))
                                     .padding(30)
@@ -899,12 +913,18 @@ impl Cryptography {
                 return container(column![column, buttons_cont]).into();
             },
             Message::KuznechickKeys => {
-                column = column.push(text("Управление криптографическими ключами алгоритма Кузнечик (ГОСТ Р 34.12-2018)")
+                column = column.push(
+                    column![
+                        text("Управление криптографическими ключами алгоритма Кузнечик (ГОСТ Р 34.12-2018)")
                             .size(24)
                             .width(Length::Fill)
-                            .align_x(iced::alignment::Horizontal::Center));
-
-                column = column.push(text(""));
+                            .align_x(iced::alignment::Horizontal::Center),
+                        text("")
+                            .size(48)
+                            .width(Length::Fill)
+                            .align_x(iced::alignment::Horizontal::Center)
+                    ]
+                );
 
                 if !self.topbar_error.is_empty()
                 {
@@ -968,10 +988,18 @@ impl Cryptography {
                             ]]);
             },
             Message::KuznechickEncryption => {
-                column = column.push(text("Шифрование алгоритмом Кузнечик (ГОСТ Р 34.12-2018)")
+                column = column.push(
+                    column![
+                        text("Шифрование алгоритмом Кузнечик (ГОСТ Р 34.12-2018)")
                             .size(24)
                             .width(Length::Fill)
-                            .align_x(iced::alignment::Horizontal::Center));
+                            .align_x(iced::alignment::Horizontal::Center),
+                        text("")
+                            .size(48)
+                            .width(Length::Fill)
+                            .align_x(iced::alignment::Horizontal::Center)
+                    ]
+                );
 
                 if !self.topbar_error.is_empty()
                 {
@@ -1044,17 +1072,17 @@ impl Cryptography {
                                             "Выберите режим работы...", 
                                             self.current_mode.as_ref(), 
                                             Message::KuznechickChangeMode
-                                        ).width(Length::Fixed(250.0)),
-                                        button("Шифровать данные")
+                                        ).width(Length::Fixed(500.0)),
+                                        button(text("Шифровать данные").align_x(iced::alignment::Horizontal::Center))
                                             .on_press(Message::KuznechickEncryptionCompute)
                                             .style(|_theme, status| button_style(status))
                                             .padding(15)
-                                            .width(Length::Fixed(250.0)),
-                                        button("Расшифровать данные")
+                                            .width(Length::Fixed(500.0)),
+                                        button(text("Расшифровать данные").align_x(iced::alignment::Horizontal::Center))
                                             .on_press(Message::KuznechickDecryptionCompute)
                                             .style(|_theme, status| button_style(status))
                                             .padding(15)
-                                            .width(Length::Fixed(250.0))
+                                            .width(Length::Fixed(500.0))
                                     ].spacing(15)
                                      .align_x(iced::Alignment::Center)
                                 ]
