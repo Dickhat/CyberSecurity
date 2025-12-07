@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["GUI"],"fn":["backward_button_style","button_style","text_editor_style","text_input_style"],"mod":["cryptography","greet_screen"]};
+window.SIDEBAR_ITEMS = {"enum":["GUI"],"fn":["backward_button_style","button_style","button_style_kuznechik","button_style_rsa","button_style_streebog","combo_box_input_style","combo_box_menu_style","text_editor_style_read","text_editor_style_write","text_input_style"],"mod":["cryptography","greet_screen"]};
