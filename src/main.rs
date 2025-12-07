@@ -73,7 +73,7 @@ fn main() -> iced::Result
 
     // Параметры окна при запуске
     let window = window::Settings {
-                size: iced::Size{width: 800.0, height: 600.0},
+                size: iced::Size{width: 1600.0, height: 1200.0},
                 resizable: true,
                 decorations: true,
                 icon: Some(icon),
