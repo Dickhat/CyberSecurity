@@ -371,7 +371,7 @@ impl Cryptography {
                 self.info_error_msg_reset();
 
                 if self.keys_kuznechik.keys.0.is_empty() {
-                    self.compute_error = "Ключи не были созданы".to_string();
+                    self.compute_error = "Ключи не были созданы. Зайдите в раздел \"К ключам\" и загрузите или сгенерируйте ключи.".to_string();
                     return Task::none();
                 }
 
@@ -502,7 +502,7 @@ impl Cryptography {
                 self.info_error_msg_reset();
 
                 if self.keys_kuznechik.keys.0.is_empty() {
-                    self.compute_error = "Ключи не были созданы".to_string();
+                    self.compute_error = "Ключи не были созданы. Зайдите в раздел \"К ключам\" и загрузите или сгенерируйте ключи.".to_string();
                     return Task::none();
                 }
 
@@ -537,6 +537,7 @@ impl Cryptography {
                         };
 
                         self.kuzcnechik_text = text_editor::Content::with_text(decrypted_data);
+                        self.compute_info    = "Файл был расшифрован".to_string();
                     },
                     Some(KuznechickModes::CFB) => {
                         let output = match block_cipher_modes::CipherModes::cfb_decrypt(
@@ -562,6 +563,7 @@ impl Cryptography {
                         };
 
                         self.kuzcnechik_text = text_editor::Content::with_text(decrypted_data);
+                        self.compute_info    = "Файл был расшифрован".to_string();
                     },
                     Some(KuznechickModes::CTR) => {
                         let mut iv:[u8; 8] = [0; 8];
@@ -583,6 +585,7 @@ impl Cryptography {
                         };
 
                         self.kuzcnechik_text = text_editor::Content::with_text(decrypted_data);
+                        self.compute_info    = "Файл был расшифрован".to_string();
                     },
                     Some(KuznechickModes::ECB) => {
                         let output = match block_cipher_modes::CipherModes::ecb_decrypt(
@@ -605,6 +608,7 @@ impl Cryptography {
                         };
 
                         self.kuzcnechik_text = text_editor::Content::with_text(decrypted_data);
+                        self.compute_info    = "Файл был расшифрован".to_string();
                     },
                     Some(KuznechickModes::OFB) => {
                         let output = block_cipher_modes::CipherModes::ofb_crypt(
@@ -624,9 +628,10 @@ impl Cryptography {
                         };
 
                         self.kuzcnechik_text = text_editor::Content::with_text(decrypted_data);
+                        self.compute_info    = "Файл был расшифрован".to_string();
                     },
                     //Some(KuznechickModes::MAC) => {},
-                    None => self.compute_error = "Ни один из режимов работы Кузнечика не был выбран".to_string()
+                    None => self.compute_error = "Ни один из режимов работы Кузнечика не был выбран.".to_string()
                 };
             },
             Message::InputTextEditor(content) => {
@@ -1121,6 +1126,48 @@ impl Cryptography {
                             center(
                                 row![
                                     column![
+                                        text("1. Загрузить или сгенерировать ключи;")
+                                            .size(24)
+                                            .style(|_theme| 
+                                                if self.mods_param.0 == 0 
+                                                {
+                                                    iced::widget::text::Style {
+                                                        color: Some(iced::Color::from_rgb(1.0, 0.0, 0.0)), // красный цвет
+                                                    }
+                                                } else {
+                                                    iced::widget::text::Style {
+                                                        color: Some(iced::Color::from_rgb(0.0, 1.0, 0.0)), // Зеленый цвет
+                                                    }
+                                                }
+                                            ),
+                                        text("2. Ввести или загрузить входной текст;")
+                                            .size(24)
+                                            .style(|_theme| 
+                                                if self.kuzcnechik_text.text() == "\n"
+                                                {
+                                                    iced::widget::text::Style {
+                                                        color: Some(iced::Color::from_rgb(1.0, 0.0, 0.0)), // красный цвет
+                                                    }
+                                                } else {
+                                                    iced::widget::text::Style {
+                                                        color: Some(iced::Color::from_rgb(0.0, 1.0, 0.0)), // Зеленый цвет
+                                                    }
+                                                }
+                                            ),
+                                        text("3. Выбрать режим шифрования.")
+                                            .size(24)
+                                            .style(|_theme| 
+                                                if self.current_mode.is_none()
+                                                {
+                                                    iced::widget::text::Style {
+                                                        color: Some(iced::Color::from_rgb(1.0, 0.0, 0.0)), // красный цвет
+                                                    }
+                                                } else {
+                                                    iced::widget::text::Style {
+                                                        color: Some(iced::Color::from_rgb(0.0, 1.0, 0.0)), // Зеленый цвет
+                                                    }
+                                                }
+                                            ),
                                         text(&self.compute_error)
                                             .size(24)
                                             .style(|_theme: &iced::Theme| iced::widget::text::Style {

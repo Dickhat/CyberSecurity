@@ -56,7 +56,7 @@ pub fn button_style_streebog(status: iced::widget::button::Status) -> iced::widg
 pub fn button_style_kuznechik(status: iced::widget::button::Status) -> iced::widget::button::Style {
     let background = match status {
         iced::widget::button::Status::Hovered => iced::Color::from_rgb8(200, 65, 83),
-        _ => iced::Color::from_rgb8(223, 144, 155)//iced::Color::from_rgb8(153, 204, 255),
+        _ => iced::Color::from_rgb8(210, 144, 155)//iced::Color::from_rgb8(223, 144, 155),
     };
 
     iced::widget::button::Style {
@@ -148,7 +148,7 @@ pub fn combo_box_input_style() -> iced::widget::text_input::Style
 pub fn combo_box_menu_style() -> iced::overlay::menu::Style
 {
     iced::overlay::menu::Style {
-        background: iced::Color::from_rgb8(223, 144, 155).into(),
+        background: iced::Color::from_rgb8(210, 144, 155).into(),
         border: iced::Border {
             color: iced::Color::BLACK,
             width: 1.0,
