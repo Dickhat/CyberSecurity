@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Message"],"fn":["auth_credential","check_exist_user","reg_credential"],"struct":["Credentials"]};

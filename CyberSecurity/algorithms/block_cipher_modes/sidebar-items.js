@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["CMAC","CipherModes"]};
+window.SIDEBAR_ITEMS = {"struct":["CipherModes"]};
